@@ -118,7 +118,17 @@ function addItem(data={}){
       <label>Largura (mm)<input class="item-w" type="number" min="0" value="${data.w||1500}"></label>
       <label>Altura (mm)<input class="item-h" type="number" min="0" value="${data.h||1200}"></label>
       <label>Quantidade<input class="item-qty" type="number" min="1" value="${data.qty||1}"></label>
-      <label>Preço (R$)<input class="item-price-input" type="number" step="0.01" min="0" value="${data.price||0}"></label>
+      <label>Preço final (R$)<input class="item-price-input" type="number" step="0.01" min="0" value="${data.price||0}"></label>
+    </div>
+    <div class="price-grid">
+      <label>Custo material (R$)<input class="item-material-cost" type="number" step="0.01" min="0" value="${data.materialCost||0}"></label>
+      <label>Custo vidro (R$)<input class="item-glass-cost" type="number" step="0.01" min="0" value="${data.glassCost||0}"></label>
+      <label>Custo ferragens (R$)<input class="item-hardware-cost" type="number" step="0.01" min="0" value="${data.hardwareCost||0}"></label>
+      <label>Mão de obra (R$)<input class="item-labor-cost" type="number" step="0.01" min="0" value="${data.laborCost||0}"></label>
+      <label>Instalação (R$)<input class="item-install-cost" type="number" step="0.01" min="0" value="${data.installCost||0}"></label>
+      <label>Margem (%)<input class="item-margin" type="number" step="0.1" min="0" value="${data.margin??30}"></label>
+      <div class="price-summary"><span>Custo: <b class="item-cost-total">R$ 0,00</b></span><span>Venda: <b class="item-sale-total">R$ 0,00</b></span></div>
+      <button type="button" class="btn secondary small calculate-item">Calcular preço</button>
     </div>
     <div class="item-bottom">
       <label>Ambiente<input class="item-room" value="${esc(data.room||'')}" placeholder="Ex.: Cozinha"></label>
@@ -136,10 +146,20 @@ function addItem(data={}){
   document.getElementById('itemsContainer').appendChild(div);
   if(data.model) div.querySelector('.item-model').value=data.model;
   if(data.category) div.querySelector('.item-category').value=data.category;
-  div.querySelectorAll('input,select').forEach(el=>el.addEventListener('input',()=>{updateItemDrawing(div);calcTotal()}));
+  div.querySelectorAll('input,select').forEach(el=>el.addEventListener('input',()=>{
+    updateItemDrawing(div);
+    if(el.classList.contains('item-material-cost')||el.classList.contains('item-glass-cost')||el.classList.contains('item-hardware-cost')||el.classList.contains('item-labor-cost')||el.classList.contains('item-install-cost')||el.classList.contains('item-margin')) calculateItem(div);
+    else calcTotal();
+  }));
+  div.querySelector('.calculate-item').onclick=()=>calculateItem(div);
   div.querySelector('.remove-item').onclick=()=>{div.remove();renumberItems();calcTotal()};
   div.querySelector('.open-drawing').onclick=()=>openDrawing(div);
-  updateItemDrawing(div);calcTotal();
+  updateItemDrawing(div);
+  const existingPrice=Number(data.price)||0;
+  const cost=(Number(data.materialCost)||0)+(Number(data.glassCost)||0)+(Number(data.hardwareCost)||0)+(Number(data.laborCost)||0)+(Number(data.installCost)||0);
+  div.querySelector('.item-cost-total').textContent=money(cost);
+  div.querySelector('.item-sale-total').textContent=money(existingPrice);
+  calcTotal();
 }
 function renumberItems(){document.querySelectorAll('#itemsContainer .item-card').forEach((el,i)=>el.querySelector('.item-title').textContent='ITEM '+String(i+1).padStart(2,'0'))}
 function getSvg(type,w,h){
@@ -168,8 +188,36 @@ function updateItemDrawing(div){
 function readItems(){
   return [...document.querySelectorAll('#itemsContainer .item-card')].map((d,i)=>{
     const model=d.querySelector('.item-model').value;
-    return {category:d.querySelector('.item-category').value,model,w:Number(d.querySelector('.item-w').value)||0,h:Number(d.querySelector('.item-h').value)||0,qty:Number(d.querySelector('.item-qty').value)||1,price:Number(d.querySelector('.item-price-input').value)||0,room:d.querySelector('.item-room').value,line:d.querySelector('.item-line').value,aluminum:d.querySelector('.item-aluminum').value,glass:d.querySelector('.item-glass').value,hardware:d.querySelector('.item-hardware').value,components:d.querySelector('.item-components').value,description:d.querySelector('.item-description').value,note:d.querySelector('.item-note').value};
+    return {
+      category:d.querySelector('.item-category').value,model,
+      w:Number(d.querySelector('.item-w').value)||0,h:Number(d.querySelector('.item-h').value)||0,
+      qty:Number(d.querySelector('.item-qty').value)||1,price:Number(d.querySelector('.item-price-input').value)||0,
+      materialCost:Number(d.querySelector('.item-material-cost').value)||0,
+      glassCost:Number(d.querySelector('.item-glass-cost').value)||0,
+      hardwareCost:Number(d.querySelector('.item-hardware-cost').value)||0,
+      laborCost:Number(d.querySelector('.item-labor-cost').value)||0,
+      installCost:Number(d.querySelector('.item-install-cost').value)||0,
+      margin:Number(d.querySelector('.item-margin').value)||0,
+      room:d.querySelector('.item-room').value,line:d.querySelector('.item-line').value,
+      aluminum:d.querySelector('.item-aluminum').value,glass:d.querySelector('.item-glass').value,
+      hardware:d.querySelector('.item-hardware').value,components:d.querySelector('.item-components').value,
+      description:d.querySelector('.item-description').value,note:d.querySelector('.item-note').value
+    };
   });
+}
+function calculateItem(div, silent=false){
+  const material=Number(div.querySelector('.item-material-cost').value)||0;
+  const glass=Number(div.querySelector('.item-glass-cost').value)||0;
+  const hardware=Number(div.querySelector('.item-hardware-cost').value)||0;
+  const labor=Number(div.querySelector('.item-labor-cost').value)||0;
+  const install=Number(div.querySelector('.item-install-cost').value)||0;
+  const margin=Number(div.querySelector('.item-margin').value)||0;
+  const cost=material+glass+hardware+labor+install;
+  const sale=cost*(1+margin/100);
+  div.querySelector('.item-price-input').value=sale.toFixed(2);
+  div.querySelector('.item-cost-total').textContent=money(cost);
+  div.querySelector('.item-sale-total').textContent=money(sale);
+  if(!silent) calcTotal();
 }
 function calcTotal(){
   const total=readItems().reduce((s,i)=>s+i.price*i.qty,0);
@@ -199,7 +247,62 @@ function printQuote(id){
   const q=state.quotes.find(x=>x.id===id);if(!q)return;
   const c=state.clients.find(x=>x.id===q.clientId)||{};
   const w=window.open('','_blank'); if(!w){alert('Permita pop-ups para imprimir.');return}
-  w.document.write(`<html><head><title>Orçamento ${q.number}</title><style>body{font-family:Arial;margin:40px;color:#111827}h1{font-size:24px}h2{font-size:16px;border-bottom:1px solid #ddd;padding-bottom:7px}table{width:100%;border-collapse:collapse}td,th{padding:9px;border-bottom:1px solid #ddd;text-align:left;font-size:12px}.total{text-align:right;font-size:22px;font-weight:bold;margin-top:20px}.item{page-break-inside:avoid;margin:15px 0}.small{color:#64748b;font-size:11px}</style></head><body><h1>${esc(state.config.company)}</h1><div>${esc(state.config.address)} • ${esc(state.config.phone)} • CNPJ ${esc(state.config.cnpj)}</div><hr><h1>ORÇAMENTO ${esc(q.number)}</h1><p><b>Data:</b> ${q.date} &nbsp; <b>Validade:</b> ${q.validity} dias</p><h2>Cliente</h2><p><b>${esc(c.name||q.clientName)}</b><br>CPF/CNPJ: ${esc(c.doc||'')}<br>${esc(c.address||'')} ${esc(c.number||'')} ${esc(c.city||'')}<br>Contato: ${esc(c.whatsapp||c.phone||'')}</p><h2>Itens</h2>${q.items.map((i,n)=>`<div class="item"><b>ITEM ${String(n+1).padStart(2,'0')} — ${esc((state.models.find(m=>m.id===i.model)||{}).name||'Produto')}</b><p>${i.w} × ${i.h} mm • Quantidade: ${i.qty} • Linha: ${esc(i.line)} • Alumínio: ${esc(i.aluminum)} • Vidro: ${esc(i.glass)} • Ferragens: ${esc(i.hardware)}<br>Ambiente: ${esc(i.room)} • ${esc(i.description)}</p><div>Valor: ${money(i.price*i.qty)}</div></div>`).join('')}<div class="total">TOTAL: ${money(q.total)}</div><h2>Condições</h2><p>Pagamento: ${esc(q.payment)}<br>Prazo: ${esc(q.delivery)}<br>Garantia: ${esc(q.warranty)}</p><p>${esc(q.notes||'')}</p><br><p>Rio de Janeiro, ____ / ____ / ______</p><br><center>________________________________________<br>${esc(state.config.company)}</center><script>window.onload=()=>window.print()<\/script></body></html>`);w.document.close();
+  const itemText=q.items.map((i,n)=>{
+    const model=(state.models.find(m=>m.id===i.model)||{}).name||'Produto';
+    const desc=i.description?`, ${i.description}`:'';
+    const ambiente=i.room?` Ambiente: ${i.room}.`:'';
+    const comp=i.components?` Componentes: ${i.components}.`:'';
+    return `<div class="print-item">
+      <h3>${n+1}º - ${String(i.qty).padStart(2,'0')} (${i.qty===1?'Uma':'Unidades'}) ${esc(model)}.</h3>
+      <p>${esc(model)} em ${esc(i.aluminum||'alumínio')}, ${esc(i.line||'modelo não informado')}, com ${esc(i.glass||'vidro não informado')}, medindo ${i.w} x ${i.h} mm.${esc(desc)}${ambiente}${comp}</p>
+      <p><b>Valor do item: ${money(i.price*i.qty)}</b></p>
+    </div>`;
+  }).join('');
+  w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Orçamento ${esc(q.number)}</title>
+  <style>
+  @page{size:A4;margin:20mm 18mm 18mm}
+  body{font-family:Arial,Helvetica,sans-serif;color:#111;margin:0;font-size:12px;line-height:1.45}
+  .print-header{border-bottom:1px solid #222;padding-bottom:10px;margin-bottom:12px}
+  .company{font-size:20px;font-weight:bold;text-transform:uppercase}
+  .subtitle{font-size:10px;margin-top:2px}
+  .contact{font-size:10px;color:#333;margin-top:5px}
+  .date{text-align:right;font-size:11px;margin:10px 0}
+  .title{text-align:center;font-size:18px;font-weight:bold;margin:12px 0 16px;text-decoration:underline}
+  .recipient{margin-bottom:14px}
+  .recipient strong{font-size:12px}
+  .intro{margin:8px 0 14px}
+  .item{border-bottom:1px solid #bbb;padding:10px 0;break-inside:avoid}
+  .item h3{font-size:12px;margin:0 0 5px}
+  .item p{margin:3px 0;font-size:11px}
+  .total{margin-top:14px;font-size:14px;font-weight:bold;text-align:right}
+  .conditions{margin-top:10px}
+  .conditions p{margin:4px 0}
+  .footer-date{margin-top:28px}
+  .signature{text-align:center;margin-top:45px}
+  .signature-line{display:inline-block;min-width:280px;border-top:1px solid #222;padding-top:5px}
+  .small{font-size:9px;color:#444}
+  </style></head><body>
+  <div class="print-header">
+    <div class="company">${esc(state.config.company)}</div>
+    <div class="subtitle">SERRALHERIA E ESQUADRIAS</div>
+    <div class="contact">${esc(state.config.address)} • Tel./WhatsApp: ${esc(state.config.phone)} • CNPJ: ${esc(state.config.cnpj)}</div>
+  </div>
+  <div class="date">Rio de Janeiro, ${q.date ? q.date.split('-').reverse().join('/') : '____/____/______'}.</div>
+  <div class="title">ORÇAMENTO</div>
+  <div class="recipient">À Ilma.<br><strong>${esc(c.name||q.clientName)}</strong><br>${esc(c.address||'')} ${c.number?'nº '+esc(c.number):''} ${esc(c.complement||'')}<br>${esc(c.district||'')} ${c.city?'– '+esc(c.city):''}</div>
+  <div class="intro">Prezada(o) Senhora(o),<br>Vimos pela presente apresentar o nosso orçamento para fornecimento e colocação de esquadrias, conforme segue abaixo.</div>
+  ${itemText}
+  <div class="total">Importa o Valor Total Deste Orçamento Em: ${money(q.total)}</div>
+  <div class="conditions">
+    <p><b>Condições de Pagamento:</b> ${esc(q.payment||'A combinar')}.</p>
+    <p><b>Prazo de Entrega:</b> ${esc(q.delivery||'A combinar')}.</p>
+    <p><b>Garantia:</b> ${esc(q.warranty||'A combinar')} de assistência técnica sobre os serviços acima discriminados.</p>
+    ${q.notes?`<p><b>Observações:</b> ${esc(q.notes)}</p>`:''}
+  </div>
+  <div class="footer-date">Rio de Janeiro, ____ / ____ / ______</div>
+  <div class="signature"><div class="signature-line">${esc(state.config.company)}<br>CNPJ: ${esc(state.config.cnpj)} • ${esc(state.config.phone)}</div></div>
+  <script>window.onload=()=>window.print()<\/script></body></html>`);
+  w.document.close();
 }
 function openDrawing(div){
   const model=state.models.find(m=>m.id===div.querySelector('.item-model').value)||state.models[0];
@@ -250,6 +353,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   document.getElementById('newClientBtn').onclick=()=>{resetClientForm();openModal('clientModal')};
   document.getElementById('clientForm').onsubmit=saveClient;
   document.getElementById('addItemBtn').onclick=()=>addItem();
+  document.getElementById('calculateAllBtn').onclick=()=>{document.querySelectorAll('#itemsContainer .item-card').forEach(d=>calculateItem(d,true));calcTotal();toast('Valores dos itens recalculados.');};
   document.getElementById('saveQuoteBtn').onclick=saveQuote;
   document.getElementById('clearQuoteBtn').onclick=prepareNewQuote;
   document.getElementById('quoteClient').onchange=e=>showClientPreview(e.target.value);

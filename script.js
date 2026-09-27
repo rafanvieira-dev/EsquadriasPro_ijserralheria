@@ -1,4 +1,36 @@
+// =========================
+// FIREBASE / FIRESTORE
+// =========================
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
+import {
+  getFirestore, collection, doc, getDocs, getDoc, setDoc, deleteDoc
+} from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
+import {
+  getAuth, signInAnonymously
+} from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBn89D_MT30YlZoZcGth5HjCowyipXZWRY",
+  authDomain: "esquadriaproij.firebaseapp.com",
+  projectId: "esquadriaproij",
+  storageBucket: "esquadriaproij.firebasestorage.app",
+  messagingSenderId: "276375113314",
+  appId: "1:276375113314:web:02bd520c116d28f13b4b3b",
+  measurementId: "G-7SCW14J9XP"
+};
+
+const firebaseApp = initializeApp(firebaseConfig);
+const db = getFirestore(firebaseApp);
+const auth = getAuth(firebaseApp);
+
 const KEY='esquadriaspro_data_v1';
+const COLLECTIONS = {
+  clients: 'clientes',
+  quotes: 'orcamentos',
+  materials: 'materiais',
+  models: 'modelos'
+};
+
 const state = {
   clients: [],
   quotes: [],
@@ -49,10 +81,94 @@ function onMaterialSelect(sel){
 function money(v){ return Number(v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'}); }
 function uid(prefix='id'){ return prefix+'_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,7); }
 function today(){ return new Date().toISOString().slice(0,10); }
-function load(){
-  try{ const saved=JSON.parse(localStorage.getItem(KEY)); if(saved) Object.assign(state,saved); }catch(e){}
+let firebaseReady = false;
+
+async function load(){
+  try {
+    await signInAnonymously(auth);
+    const [clientsSnap, quotesSnap, materialsSnap, modelsSnap, configSnap] = await Promise.all([
+      getDocs(collection(db, COLLECTIONS.clients)),
+      getDocs(collection(db, COLLECTIONS.quotes)),
+      getDocs(collection(db, COLLECTIONS.materials)),
+      getDocs(collection(db, COLLECTIONS.models)),
+      getDoc(doc(db, 'configuracoes', 'principal'))
+    ]);
+
+    state.clients = clientsSnap.docs.map(d => ({id:d.id, ...d.data()}));
+    state.quotes = quotesSnap.docs.map(d => ({id:d.id, ...d.data()}));
+
+    const firebaseMaterials = materialsSnap.docs.map(d => ({id:d.id, ...d.data()}));
+    state.materials = firebaseMaterials.length ? firebaseMaterials : state.materials;
+
+    const firebaseModels = modelsSnap.docs.map(d => ({id:d.id, ...d.data()}));
+    state.models = firebaseModels.length ? firebaseModels : state.models;
+
+    if(configSnap.exists()) state.config = {...state.config, ...configSnap.data()};
+
+    firebaseReady = true;
+    console.log('Firebase conectado:', firebaseConfig.projectId);
+  } catch(error) {
+    console.error('Erro ao carregar Firebase:', error);
+    firebaseReady = false;
+    try {
+      const saved=JSON.parse(localStorage.getItem(KEY));
+      if(saved) Object.assign(state,saved);
+    } catch(e) {}
+    toast('Firebase não conectado. Verifique Authentication e Firestore.');
+  }
 }
-function save(){ localStorage.setItem(KEY,JSON.stringify(state)); toast('Dados salvos no navegador.'); }
+
+async function save(){
+  try {
+    if(!firebaseReady) throw new Error('Firebase ainda não está pronto.');
+
+    await Promise.all([
+      ...state.clients.map(c => setDoc(doc(db, COLLECTIONS.clients, c.id), c)),
+      ...state.quotes.map(q => setDoc(doc(db, COLLECTIONS.quotes, q.id), q)),
+      ...state.materials.map(m => setDoc(doc(db, COLLECTIONS.materials, m.id), m)),
+      ...state.models.map(m => setDoc(doc(db, COLLECTIONS.models, m.id), m)),
+      setDoc(doc(db, 'configuracoes', 'principal'), state.config)
+    ]);
+
+    // Mantém uma cópia local de segurança.
+    localStorage.setItem(KEY, JSON.stringify(state));
+    toast('Dados salvos no Firebase.');
+    return true;
+  } catch(error) {
+    console.error('Erro ao salvar no Firebase:', error);
+    localStorage.setItem(KEY, JSON.stringify(state));
+    toast('Erro no Firebase. Cópia local salva.');
+    return false;
+  }
+}
+
+async function saveOne(collectionName, data){
+  try {
+    if(!firebaseReady) throw new Error('Firebase ainda não está pronto.');
+    await setDoc(doc(db, collectionName, data.id), data);
+    localStorage.setItem(KEY, JSON.stringify(state));
+    return true;
+  } catch(error) {
+    console.error('Erro ao salvar:', error);
+    localStorage.setItem(KEY, JSON.stringify(state));
+    return false;
+  }
+}
+
+async function deleteOne(collectionName, id){
+  try {
+    if(!firebaseReady) throw new Error('Firebase ainda não está pronto.');
+    await deleteDoc(doc(db, collectionName, id));
+    localStorage.setItem(KEY, JSON.stringify(state));
+    return true;
+  } catch(error) {
+    console.error('Erro ao excluir:', error);
+    localStorage.setItem(KEY, JSON.stringify(state));
+    toast('Erro ao excluir no Firebase.');
+    return false;
+  }
+}
+
 function toast(msg){
   let t=document.querySelector('.toast'); if(!t){t=document.createElement('div');t.className='toast';Object.assign(t.style,{position:'fixed',right:'20px',bottom:'20px',background:'#111827',color:'#fff',padding:'12px 16px',borderRadius:'9px',zIndex:200});document.body.appendChild(t)}
   t.textContent=msg;t.style.opacity='1';clearTimeout(t._tm);t._tm=setTimeout(()=>t.style.opacity='0',2200);
@@ -246,7 +362,7 @@ function calcTotal(){
   document.getElementById('quoteTotal').textContent=money(total);
   return total;
 }
-function saveQuote(e){
+async function saveQuote(e){
   if(e){ e.preventDefault(); e.stopPropagation(); }
   try{
     if(!Array.isArray(state.quotes)) state.quotes=[];
@@ -297,13 +413,12 @@ function saveQuote(e){
 
     localStorage.setItem(KEY,JSON.stringify(state));
 
-    // Confirma que o navegador realmente gravou o orçamento.
-    const check=JSON.parse(localStorage.getItem(KEY)||'null');
-    if(!check || !Array.isArray(check.quotes) || !check.quotes.some(q=>String(q.id)===String(id))){
-      throw new Error('Não foi possível confirmar a gravação no localStorage.');
+    const firebaseSaved = await saveOne(COLLECTIONS.quotes, quote);
+    if(!firebaseSaved){
+      throw new Error('Não foi possível salvar o orçamento no Firebase.');
     }
 
-    toast('Orçamento salvo com sucesso.');
+    toast('Orçamento salvo com sucesso no Firebase.');
     renderQuotes();
     renderDashboard();
     setTimeout(()=>go('orcamentos'),150);
@@ -321,9 +436,9 @@ function editQuote(id){
   document.getElementById('paymentTerms').value=q.payment||'';document.getElementById('deliveryTerms').value=q.delivery||'';document.getElementById('warrantyTerms').value=q.warranty||'';document.getElementById('quoteNotes').value=q.notes||'';
   document.getElementById('itemsContainer').innerHTML='';itemCounter=0;(q.items||[]).forEach(i=>addItem(i));calcTotal();
 }
-function duplicateQuote(id){
+async function duplicateQuote(id){
   const q=JSON.parse(JSON.stringify(state.quotes.find(x=>x.id===id)));if(!q)return;
-  q.id=uid('q');q.number=nextQuoteNumber();q.status='Rascunho';q.date=today();state.quotes.push(q);save();renderQuotes();
+  q.id=uid('q');q.number=nextQuoteNumber();q.status='Rascunho';q.date=today();state.quotes.push(q);await saveOne(COLLECTIONS.quotes,q);renderQuotes();
 }
 function printQuote(id){
   const q=state.quotes.find(x=>x.id===id);if(!q)return;
@@ -439,12 +554,12 @@ function editClient(id){
   openModal('clientModal');document.getElementById('clientModalTitle').textContent='Editar cliente';
   Object.entries({clientId:c.id,clientName:c.name,clientDoc:c.doc,clientPhone:c.phone,clientWhatsapp:c.whatsapp,clientEmail:c.email,clientCep:c.cep,clientAddress:c.address,clientNumber:c.number,clientComplement:c.complement,clientDistrict:c.district,clientCity:c.city,clientNotes:c.notes}).forEach(([id,v])=>document.getElementById(id).value=v||'');
 }
-function saveClient(e){
+async function saveClient(e){
   e.preventDefault();
   const id=document.getElementById('clientId').value||uid('c');
   const c={id,name:document.getElementById('clientName').value.trim(),doc:document.getElementById('clientDoc').value,phone:document.getElementById('clientPhone').value,whatsapp:document.getElementById('clientWhatsapp').value,email:document.getElementById('clientEmail').value,cep:document.getElementById('clientCep').value,address:document.getElementById('clientAddress').value,number:document.getElementById('clientNumber').value,complement:document.getElementById('clientComplement').value,district:document.getElementById('clientDistrict').value,city:document.getElementById('clientCity').value,notes:document.getElementById('clientNotes').value};
   const idx=state.clients.findIndex(x=>x.id===id);if(idx>=0)state.clients[idx]=c;else state.clients.push(c);
-  save();closeModal('clientModal');renderClients();populateClientSelect();
+  await saveOne(COLLECTIONS.clients, c);closeModal('clientModal');renderClients();populateClientSelect();
 }
 function renderModels(){
   document.getElementById('modelsGrid').innerHTML=state.models.map(m=>`<div class="model-card"><div class="model-drawing">${getSvg(m.type,1200,800)}</div><h3>${esc(m.name)}</h3><div class="muted">${esc(m.category)}</div><p>${esc(m.description||'')}</p><button class="mini-btn" data-model-draw="${m.id}">Ver desenho</button></div>`).join('');
@@ -460,8 +575,8 @@ function loadConfig(){
 }
 function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]))}
 
-document.addEventListener('DOMContentLoaded',()=>{
-  load();loadConfig();go('dashboard');
+document.addEventListener('DOMContentLoaded',async()=>{
+  await load();loadConfig();go('dashboard');
   document.querySelectorAll('.nav-item').forEach(b=>b.onclick=()=>go(b.dataset.page));
   document.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>go(b.dataset.go));
   document.getElementById('mobileMenu').onclick=()=>document.getElementById('sidebar').classList.toggle('open');
@@ -491,15 +606,15 @@ document.addEventListener('DOMContentLoaded',()=>{
   document.getElementById('saveConfigBtn').onclick=saveConfig;
   document.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>closeModal(b.dataset.close));
   document.addEventListener('keydown',e=>{if(e.key==='Escape')document.querySelectorAll('.modal.open').forEach(m=>m.classList.remove('open'))});
-  document.addEventListener('click',e=>{
+  document.addEventListener('click',async e=>{
     const t=e.target;
     if(t.dataset.editClient)editClient(t.dataset.editClient);
-    if(t.dataset.deleteClient){if(confirm('Excluir este cliente?')){state.clients=state.clients.filter(c=>c.id!==t.dataset.deleteClient);save();renderClients();}}
+    if(t.dataset.deleteClient){if(confirm('Excluir este cliente?')){const id=t.dataset.deleteClient;state.clients=state.clients.filter(c=>c.id!==id);await deleteOne(COLLECTIONS.clients,id);renderClients();}}
     if(t.dataset.editQuote)editQuote(t.dataset.editQuote);
     if(t.dataset.printQuote)printQuote(t.dataset.printQuote);
     if(t.dataset.duplicateQuote)duplicateQuote(t.dataset.duplicateQuote);
-    if(t.dataset.deleteQuote){if(confirm('Excluir este orçamento?')){state.quotes=state.quotes.filter(q=>q.id!==t.dataset.deleteQuote);save();renderQuotes();renderDashboard();}}
+    if(t.dataset.deleteQuote){if(confirm('Excluir este orçamento?')){const id=t.dataset.deleteQuote;state.quotes=state.quotes.filter(q=>q.id!==id);await deleteOne(COLLECTIONS.quotes,id);renderQuotes();renderDashboard();}}
     if(t.dataset.modelDraw){const m=state.models.find(x=>x.id===t.dataset.modelDraw);document.getElementById('drawingLarge').innerHTML=`<h3>${esc(m.name)}</h3>${getSvg(m.type,1200,800)}`;openModal('drawingModal')}
-    if(t.dataset.deleteMaterial){if(confirm('Excluir este material?')){state.materials=state.materials.filter(m=>m.id!==t.dataset.deleteMaterial);save();renderMaterials();}}
+    if(t.dataset.deleteMaterial){if(confirm('Excluir este material?')){const id=t.dataset.deleteMaterial;state.materials=state.materials.filter(m=>m.id!==id);await deleteOne(COLLECTIONS.materials,id);renderMaterials();}}
   });
 });

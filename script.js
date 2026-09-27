@@ -121,7 +121,16 @@ function addItem(data={}){
       <label>Preço final (R$)<input class="item-price-input" type="number" step="0.01" min="0" value="${data.price||0}"></label>
     </div>
     <div class="price-grid">
-      <label>Custo material (R$)<input class="item-material-cost" type="number" step="0.01" min="0" value="${data.materialCost||0}"></label>
+      <label>Material
+<select class="item-material-select" onchange="onMaterialSelect(this)">
+${materialOptions(data.materialIndex)}
+</select>
+</label>
+<label>Quantidade do material
+<input type="number" class="item-material-qty" value="${data.materialQty||1}" min="0" step="0.01"
+ onchange="onMaterialSelect(this.parentElement.parentElement.querySelector('.item-material-select'))">
+</label>
+<label>Custo material (R$)<input class="item-material-cost" type="number" step="0.01" min="0" value="${data.materialCost||0}"></label>
       <label>Custo vidro (R$)<input class="item-glass-cost" type="number" step="0.01" min="0" value="${data.glassCost||0}"></label>
       <label>Custo ferragens (R$)<input class="item-hardware-cost" type="number" step="0.01" min="0" value="${data.hardwareCost||0}"></label>
       <label>Mão de obra (R$)<input class="item-labor-cost" type="number" step="0.01" min="0" value="${data.laborCost||0}"></label>
@@ -192,7 +201,7 @@ function readItems(){
       category:d.querySelector('.item-category').value,model,
       w:Number(d.querySelector('.item-w').value)||0,h:Number(d.querySelector('.item-h').value)||0,
       qty:Number(d.querySelector('.item-qty').value)||1,price:Number(d.querySelector('.item-price-input').value)||0,
-      materialCost:Number(d.querySelector('.item-material-cost').value)||0,
+      materialIndex:d.querySelector('.item-material-select')?.value||'', materialQty:Number(d.querySelector('.item-material-qty')?.value)||1, materialCost:Number(d.querySelector('.item-material-cost').value)||0,
       glassCost:Number(d.querySelector('.item-glass-cost').value)||0,
       hardwareCost:Number(d.querySelector('.item-hardware-cost').value)||0,
       laborCost:Number(d.querySelector('.item-labor-cost').value)||0,

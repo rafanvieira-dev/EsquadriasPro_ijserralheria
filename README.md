@@ -33,3 +33,7 @@ Protótipo front-end de um sistema de orçamento para serralheria e esquadrias.
 
 ## Próxima etapa recomendada
 Para transformar o protótipo em um sistema comercial completo, a próxima versão deve incluir banco de dados, login/usuários, armazenamento em nuvem, upload de logotipo, geração real de PDF/DOCX no servidor, assinatura/aprovação do cliente, histórico de versões e ordem de produção.
+
+
+## v4 — Materiais
+Material selecionável da lista cadastrada em Materiais, com preço puxado automaticamente e cálculo pelo número de unidades/quantidade. O restante do sistema foi mantido.

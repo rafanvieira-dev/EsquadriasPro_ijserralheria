@@ -85,7 +85,10 @@ let firebaseReady = false;
 
 async function load(){
   try {
-    await signInAnonymously(auth);
+    setFirebaseStatus('connecting');
+    const credentials = await signInAnonymously(auth);
+    console.log('Firebase Auth OK. UID:', credentials.user.uid);
+
     const [clientsSnap, quotesSnap, materialsSnap, modelsSnap, configSnap] = await Promise.all([
       getDocs(collection(db, COLLECTIONS.clients)),
       getDocs(collection(db, COLLECTIONS.quotes)),
@@ -106,15 +109,40 @@ async function load(){
     if(configSnap.exists()) state.config = {...state.config, ...configSnap.data()};
 
     firebaseReady = true;
+    setFirebaseStatus('online');
     console.log('Firebase conectado:', firebaseConfig.projectId);
+    return true;
   } catch(error) {
     console.error('Erro ao carregar Firebase:', error);
     firebaseReady = false;
+    setFirebaseStatus('offline');
     try {
       const saved=JSON.parse(localStorage.getItem(KEY));
       if(saved) Object.assign(state,saved);
     } catch(e) {}
-    toast('Firebase não conectado. Verifique Authentication e Firestore.');
+
+    let msg='Firebase não conectado.';
+    if(error?.code === 'auth/operation-not-allowed') msg='Ative Authentication > Sign-in method > Anonymous no Firebase.';
+    else if(error?.code === 'permission-denied') msg='Firestore recusou o acesso. Publique as regras com request.auth != null.';
+    else if(location.protocol === 'file:') msg='Abra o sistema pelo GitHub Pages/servidor, não por file://.';
+    toast(msg);
+    return false;
+  }
+}
+
+function setFirebaseStatus(status){
+  const el=document.getElementById('firebaseStatus');
+  if(!el) return;
+  el.classList.remove('online','offline');
+  if(status==='online'){
+    el.textContent='🟢 Firebase conectado';
+    el.classList.add('online');
+  }else if(status==='connecting'){
+    el.textContent='🟡 Firebase conectando...';
+    el.classList.add('offline');
+  }else{
+    el.textContent='🔴 Firebase desconectado';
+    el.classList.add('offline');
   }
 }
 
@@ -137,7 +165,8 @@ async function save(){
   } catch(error) {
     console.error('Erro ao salvar no Firebase:', error);
     localStorage.setItem(KEY, JSON.stringify(state));
-    toast('Erro no Firebase. Cópia local salva.');
+    if(error?.code === 'permission-denied') toast('Firebase recusou a gravação. Verifique as Rules.');
+    else toast('Erro no Firebase. Cópia local salva.');
     return false;
   }
 }

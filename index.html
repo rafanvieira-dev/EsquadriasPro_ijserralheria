@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EsquadriasPro — Orçamentos</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar">
+      <div class="brand">
+        <div class="brand-mark">EP</div>
+        <div>
+          <strong>EsquadriasPro</strong>
+          <small>Orçamentos & Produção</small>
+        </div>
+      </div>
+
+      <nav class="nav">
+        <button class="nav-item active" data-page="dashboard"><span>⌂</span> Dashboard</button>
+        <button class="nav-item" data-page="clientes"><span>👥</span> Clientes</button>
+        <button class="nav-item" data-page="orcamentos"><span>▤</span> Orçamentos</button>
+        <button class="nav-item" data-page="novo-orcamento"><span>＋</span> Novo orçamento</button>
+        <button class="nav-item" data-page="modelos"><span>▦</span> Modelos / Desenhos</button>
+        <button class="nav-item" data-page="materiais"><span>◈</span> Materiais</button>
+        <button class="nav-item" data-page="ordens"><span>⚙</span> Produção</button>
+        <button class="nav-item" data-page="configuracoes"><span>⚙</span> Configurações</button>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="company-mini">SERRALHERIA E ESQUADRIAS</div>
+        <small>Protótipo local • dados salvos no navegador</small>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <button class="mobile-menu" id="mobileMenu">☰</button>
+        <div class="breadcrumb" id="breadcrumb">Dashboard</div>
+        <div class="top-actions">
+          <button class="icon-btn" title="Salvar dados" id="saveBtn">💾</button>
+          <button class="user-pill">Administrador ▾</button>
+        </div>
+      </header>
+
+      <div class="content">
+        <!-- DASHBOARD -->
+        <section class="page active" id="page-dashboard">
+          <div class="page-head">
+            <div>
+              <h1>Dashboard</h1>
+              <p>Visão geral dos seus clientes, orçamentos e produção.</p>
+            </div>
+            <button class="btn primary" data-go="novo-orcamento">＋ Novo orçamento</button>
+          </div>
+
+          <div class="stats">
+            <div class="stat-card"><span>Orçamentos</span><strong id="statOrcamentos">0</strong><small>Total cadastrado</small></div>
+            <div class="stat-card"><span>Aprovados</span><strong id="statAprovados">0</strong><small>Status aprovado</small></div>
+            <div class="stat-card"><span>Pendentes</span><strong id="statPendentes">0</strong><small>Aguardando cliente</small></div>
+            <div class="stat-card"><span>Valor em orçamento</span><strong id="statValor">R$ 0,00</strong><small>Soma dos orçamentos</small></div>
+          </div>
+
+          <div class="grid-2">
+            <div class="card">
+              <div class="card-head"><h2>Últimos orçamentos</h2><button class="link-btn" data-go="orcamentos">Ver todos</button></div>
+              <div id="recentQuotes" class="table-wrap"></div>
+            </div>
+            <div class="card">
+              <div class="card-head"><h2>Ações rápidas</h2></div>
+              <div class="quick-grid">
+                <button data-go="novo-orcamento">＋ Criar orçamento</button>
+                <button data-go="clientes">👥 Novo cliente</button>
+                <button data-go="modelos">▦ Modelos e desenhos</button>
+                <button data-go="materiais">◈ Tabela de materiais</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- CLIENTES -->
+        <section class="page" id="page-clientes">
+          <div class="page-head">
+            <div><h1>Clientes</h1><p>Cadastro e histórico dos clientes.</p></div>
+            <button class="btn primary" id="newClientBtn">＋ Novo cliente</button>
+          </div>
+          <div class="toolbar">
+            <input id="clientSearch" placeholder="Pesquisar por nome, CPF/CNPJ ou telefone">
+          </div>
+          <div class="card table-card">
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Cliente</th><th>CPF/CNPJ</th><th>Contato</th><th>Cidade</th><th>Orçamentos</th><th>Ações</th></tr></thead>
+                <tbody id="clientsTable"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- ORÇAMENTOS -->
+        <section class="page" id="page-orcamentos">
+          <div class="page-head">
+            <div><h1>Orçamentos</h1><p>Gerencie, duplique, imprima e acompanhe os orçamentos.</p></div>
+            <button class="btn primary" data-go="novo-orcamento">＋ Novo orçamento</button>
+          </div>
+          <div class="toolbar">
+            <input id="quoteSearch" placeholder="Pesquisar número ou cliente">
+            <select id="quoteStatusFilter">
+              <option value="">Todos os status</option>
+              <option>Rascunho</option><option>Enviado</option><option>Aprovado</option>
+              <option>Recusado</option><option>Cancelado</option><option>Em produção</option><option>Instalado</option>
+            </select>
+          </div>
+          <div class="card table-card"><div class="table-wrap"><table>
+            <thead><tr><th>Nº</th><th>Cliente</th><th>Data</th><th>Itens</th><th>Total</th><th>Status</th><th>Ações</th></tr></thead>
+            <tbody id="quotesTable"></tbody>
+          </table></div></div>
+        </section>
+
+        <!-- NOVO ORÇAMENTO -->
+        <section class="page" id="page-novo-orcamento">
+          <div class="page-head">
+            <div><h1 id="quoteFormTitle">Novo orçamento</h1><p>Preencha o cliente e adicione as peças que farão parte da proposta.</p></div>
+            <div class="head-actions">
+              <button class="btn secondary" id="clearQuoteBtn">Limpar</button>
+              <button class="btn primary" id="saveQuoteBtn">💾 Salvar orçamento</button>
+            </div>
+          </div>
+
+          <form id="quoteForm">
+            <input type="hidden" id="editingQuoteId">
+            <div class="card">
+              <div class="section-title">1. Dados do orçamento</div>
+              <div class="form-grid cols-4">
+                <label>Número<input id="quoteNumber" readonly></label>
+                <label>Data<input type="date" id="quoteDate"></label>
+                <label>Validade (dias)<input type="number" id="quoteValidity" value="10"></label>
+                <label>Status<select id="quoteStatus"><option>Rascunho</option><option>Enviado</option><option>Aprovado</option><option>Recusado</option><option>Cancelado</option><option>Em produção</option><option>Instalado</option></select></label>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="section-title">2. Cliente e obra</div>
+              <div class="form-grid cols-3">
+                <label>Cliente
+                  <select id="quoteClient"><option value="">Selecione um cliente</option></select>
+                </label>
+                <label>Nome da obra<input id="quoteWork" placeholder="Ex.: Residência João"></label>
+                <label>Responsável pelo orçamento<input id="quoteSeller" value="Administrador"></label>
+              </div>
+              <div id="clientPreview" class="client-preview hidden"></div>
+            </div>
+
+            <div class="card">
+              <div class="section-title row-between">
+                <span>3. Itens do orçamento</span>
+                <button type="button" class="btn primary small" id="addItemBtn">＋ Adicionar item</button>
+              </div>
+              <div id="itemsContainer"></div>
+              <div class="total-box">
+                <span>Total do orçamento</span><strong id="quoteTotal">R$ 0,00</strong>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="section-title">4. Condições comerciais</div>
+              <div class="form-grid cols-3">
+                <label>Forma de pagamento<input id="paymentTerms" value="50% de sinal e 50% na instalação"></label>
+                <label>Prazo de entrega<input id="deliveryTerms" value="10 dias"></label>
+                <label>Garantia<input id="warrantyTerms" value="12 meses"></label>
+              </div>
+              <label>Observações gerais<textarea id="quoteNotes" rows="4" placeholder="Instalação, restrições, observações do cliente..."></textarea></label>
+            </div>
+          </form>
+        </section>
+
+        <!-- MODELOS -->
+        <section class="page" id="page-modelos">
+          <div class="page-head">
+            <div><h1>Modelos / Desenhos</h1><p>Biblioteca de modelos paramétricos usados nos orçamentos.</p></div>
+            <button class="btn primary" id="newModelBtn">＋ Novo modelo</button>
+          </div>
+          <div class="model-grid" id="modelsGrid"></div>
+        </section>
+
+        <!-- MATERIAIS -->
+        <section class="page" id="page-materiais">
+          <div class="page-head">
+            <div><h1>Materiais e preços</h1><p>Base simples para custos e cálculo do preço de venda.</p></div>
+            <button class="btn primary" id="newMaterialBtn">＋ Novo material</button>
+          </div>
+          <div class="card table-card"><div class="table-wrap"><table>
+            <thead><tr><th>Material</th><th>Categoria</th><th>Unidade</th><th>Custo</th><th>Ações</th></tr></thead>
+            <tbody id="materialsTable"></tbody>
+          </table></div></div>
+        </section>
+
+        <!-- PRODUÇÃO -->
+        <section class="page" id="page-ordens">
+          <div class="page-head">
+            <div><h1>Produção</h1><p>Ordens de produção derivadas dos orçamentos aprovados.</p></div>
+          </div>
+          <div class="card">
+            <div class="empty-state">
+              <div class="empty-icon">⚙</div>
+              <h2>Pronto para a próxima etapa</h2>
+              <p>Quando um orçamento for aprovado, ele poderá ser transformado em uma ordem de produção com medidas, componentes e desenhos.</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- CONFIG -->
+        <section class="page" id="page-configuracoes">
+          <div class="page-head"><div><h1>Configurações</h1><p>Dados que aparecem no documento final.</p></div></div>
+          <div class="card">
+            <div class="section-title">Empresa</div>
+            <div class="form-grid cols-2">
+              <label>Nome da empresa<input id="cfgCompany"></label>
+              <label>CNPJ<input id="cfgCnpj"></label>
+              <label>Telefone / WhatsApp<input id="cfgPhone"></label>
+              <label>Endereço<input id="cfgAddress"></label>
+              <label>Logotipo (URL)<input id="cfgLogo" placeholder="Opcional"></label>
+              <label>Cor principal<input type="color" id="cfgColor" value="#172033"></label>
+            </div>
+            <div class="form-actions"><button class="btn primary" id="saveConfigBtn">Salvar configurações</button></div>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <!-- MODAL CLIENTE -->
+  <div class="modal" id="clientModal">
+    <div class="modal-box">
+      <div class="modal-head"><h2 id="clientModalTitle">Novo cliente</h2><button class="close" data-close="clientModal">×</button></div>
+      <form id="clientForm">
+        <input type="hidden" id="clientId">
+        <div class="form-grid cols-2">
+          <label>Nome / Razão Social<input id="clientName" required></label>
+          <label>CPF / CNPJ<input id="clientDoc"></label>
+          <label>Telefone<input id="clientPhone"></label>
+          <label>WhatsApp<input id="clientWhatsapp"></label>
+          <label>E-mail<input id="clientEmail" type="email"></label>
+          <label>CEP<input id="clientCep"></label>
+          <label>Endereço<input id="clientAddress"></label>
+          <label>Número<input id="clientNumber"></label>
+          <label>Complemento<input id="clientComplement"></label>
+          <label>Bairro<input id="clientDistrict"></label>
+          <label>Cidade / UF<input id="clientCity"></label>
+          <label>Observações<input id="clientNotes"></label>
+        </div>
+        <div class="form-actions"><button type="button" class="btn secondary" data-close="clientModal">Cancelar</button><button class="btn primary">Salvar cliente</button></div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL MODELO -->
+  <div class="modal" id="modelModal">
+    <div class="modal-box">
+      <div class="modal-head"><h2>Novo modelo</h2><button class="close" data-close="modelModal">×</button></div>
+      <form id="modelForm">
+        <div class="form-grid cols-2">
+          <label>Nome<input id="modelName" required placeholder="Ex.: Janela 2 folhas"></label>
+          <label>Categoria<select id="modelCategory"><option>Janela</option><option>Porta</option><option>Portão</option><option>Guarda-corpo</option><option>Outro</option></select></label>
+        </div>
+        <label>Descrição<textarea id="modelDescription" rows="3"></textarea></label>
+        <div class="form-actions"><button type="button" class="btn secondary" data-close="modelModal">Cancelar</button><button class="btn primary">Adicionar</button></div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL MATERIAL -->
+  <div class="modal" id="materialModal">
+    <div class="modal-box">
+      <div class="modal-head"><h2>Novo material</h2><button class="close" data-close="materialModal">×</button></div>
+      <form id="materialForm">
+        <div class="form-grid cols-2">
+          <label>Material<input id="materialName" required></label>
+          <label>Categoria<input id="materialCategory" placeholder="Alumínio, vidro, ferragem..."></label>
+          <label>Unidade<input id="materialUnit" value="un"></label>
+          <label>Custo unitário<input id="materialCost" type="number" step="0.01" min="0"></label>
+        </div>
+        <div class="form-actions"><button type="button" class="btn secondary" data-close="materialModal">Cancelar</button><button class="btn primary">Adicionar</button></div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL CLIENTE PREVIEW / DRAWING -->
+  <div class="modal" id="drawingModal">
+    <div class="modal-box large">
+      <div class="modal-head"><h2>Esboço técnico</h2><button class="close" data-close="drawingModal">×</button></div>
+      <div id="drawingLarge"></div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>

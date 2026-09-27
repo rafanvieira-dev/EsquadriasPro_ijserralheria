@@ -246,61 +246,95 @@ function duplicateQuote(id){
 function printQuote(id){
   const q=state.quotes.find(x=>x.id===id);if(!q)return;
   const c=state.clients.find(x=>x.id===q.clientId)||{};
-  const w=window.open('','_blank'); if(!w){alert('Permita pop-ups para imprimir.');return}
-  const itemText=q.items.map((i,n)=>{
+  const w=window.open('','_blank');if(!w){alert('Permita pop-ups para imprimir.');return}
+  const items=q.items||[];
+  const rows=items.map((i,n)=>{
     const model=(state.models.find(m=>m.id===i.model)||{}).name||'Produto';
-    const desc=i.description?`, ${i.description}`:'';
-    const ambiente=i.room?` Ambiente: ${i.room}.`:'';
-    const comp=i.components?` Componentes: ${i.components}.`:'';
-    return `<div class="print-item">
-      <h3>${n+1}º - ${String(i.qty).padStart(2,'0')} (${i.qty===1?'Uma':'Unidades'}) ${esc(model)}.</h3>
-      <p>${esc(model)} em ${esc(i.aluminum||'alumínio')}, ${esc(i.line||'modelo não informado')}, com ${esc(i.glass||'vidro não informado')}, medindo ${i.w} x ${i.h} mm.${esc(desc)}${ambiente}${comp}</p>
-      <p><b>Valor do item: ${money(i.price*i.qty)}</b></p>
+    return `<tr>
+      <td>${n+1}</td>
+      <td><b>${esc(model)}</b><br><span class="desc">${esc(i.description||'')} ${i.room?'• Ambiente: '+esc(i.room):''}</span></td>
+      <td class="center">${i.qty}</td>
+      <td class="center">${i.w} × ${i.h} mm</td>
+      <td class="right">${money(i.price)}</td>
+      <td class="right">${money(i.price*i.qty)}</td>
+    </tr>`;
+  }).join('');
+  const detail=items.map((i,n)=>{
+    const model=(state.models.find(m=>m.id===i.model)||{}).name||'Produto';
+    return `<div class="detail"><b>ITEM ${String(n+1).padStart(2,'0')} — ${esc(model)}</b>
+      <div>${esc(i.aluminum||'')} ${i.line?'• '+esc(i.line):''} • ${esc(i.glass||'')} • ${esc(i.hardware||'')}</div>
+      <div>${i.components?'Componentes: '+esc(i.components):''} ${i.note?'• '+esc(i.note):''}</div>
     </div>`;
   }).join('');
-  w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Orçamento ${esc(q.number)}</title>
+
+  const address=[c.address,c.number,c.complement,c.district].filter(Boolean).join(', ');
+  const city=[c.city].filter(Boolean).join(' – ');
+  w.document.write(`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">
+  <title>Orçamento ${esc(q.number)}</title>
   <style>
-  @page{size:A4;margin:20mm 18mm 18mm}
-  body{font-family:Arial,Helvetica,sans-serif;color:#111;margin:0;font-size:12px;line-height:1.45}
-  .print-header{border-bottom:1px solid #222;padding-bottom:10px;margin-bottom:12px}
-  .company{font-size:20px;font-weight:bold;text-transform:uppercase}
-  .subtitle{font-size:10px;margin-top:2px}
-  .contact{font-size:10px;color:#333;margin-top:5px}
-  .date{text-align:right;font-size:11px;margin:10px 0}
-  .title{text-align:center;font-size:18px;font-weight:bold;margin:12px 0 16px;text-decoration:underline}
-  .recipient{margin-bottom:14px}
-  .recipient strong{font-size:12px}
-  .intro{margin:8px 0 14px}
-  .item{border-bottom:1px solid #bbb;padding:10px 0;break-inside:avoid}
-  .item h3{font-size:12px;margin:0 0 5px}
-  .item p{margin:3px 0;font-size:11px}
-  .total{margin-top:14px;font-size:14px;font-weight:bold;text-align:right}
-  .conditions{margin-top:10px}
-  .conditions p{margin:4px 0}
-  .footer-date{margin-top:28px}
-  .signature{text-align:center;margin-top:45px}
-  .signature-line{display:inline-block;min-width:280px;border-top:1px solid #222;padding-top:5px}
-  .small{font-size:9px;color:#444}
+  @page{size:A4;margin:12mm 12mm 14mm}
+  *{box-sizing:border-box}body{font-family:Arial,Helvetica,sans-serif;color:#111;font-size:10px;margin:0;line-height:1.35}
+  .top{border:1px solid #333;display:grid;grid-template-columns:1fr 220px;min-height:92px}
+  .brand{padding:11px;border-right:1px solid #333}.brand h1{font-size:18px;margin:0 0 2px;text-transform:uppercase}.brand .sub{font-size:9px;font-weight:bold}.brand .contact{font-size:8.5px;margin-top:8px}
+  .number{padding:10px}.number .label{font-size:8px;font-weight:bold}.number .value{font-size:14px;font-weight:bold;margin:3px 0 8px}.number .notice{border:1px solid #777;padding:5px;font-size:8px;font-weight:bold;text-align:center}
+  .title{text-align:center;border:1px solid #333;border-top:0;padding:6px;font-size:15px;font-weight:bold;letter-spacing:.5px}
+  .section-title{background:#e9edf2;border:1px solid #555;border-bottom:0;padding:4px 6px;font-size:9px;font-weight:bold;text-transform:uppercase}
+  .box{border:1px solid #555;padding:7px;margin-bottom:8px;min-height:55px}.cols{display:grid;grid-template-columns:1fr 1fr;gap:0}.cols>div{padding-right:10px}.field{margin:2px 0}.field b{font-size:8px}.field span{font-size:9px}
+  table{width:100%;border-collapse:collapse}.items th{background:#e9edf2;border:1px solid #555;padding:5px;font-size:8px;text-transform:uppercase}.items td{border:1px solid #888;padding:5px;vertical-align:top;font-size:9px}.desc{font-size:8px;color:#444}.center{text-align:center}.right{text-align:right;white-space:nowrap}
+  .value-box{border:1px solid #555;border-top:0;display:grid;grid-template-columns:1fr 1fr}.value-box>div{padding:7px}.value-box>div:first-child{border-right:1px solid #555}.value-big{font-size:13px;font-weight:bold}
+  .detail{border-bottom:1px dotted #888;padding:5px 0;font-size:8.5px}.detail:last-child{border-bottom:0}
+  .conditions{display:grid;grid-template-columns:1fr 1fr 1fr;border:1px solid #555}.conditions>div{padding:7px;border-right:1px solid #555}.conditions>div:last-child{border-right:0}.conditions b{display:block;font-size:8px}.conditions span{font-size:9px}
+  .notes{border:1px solid #555;padding:7px;min-height:55px}.footer{margin-top:20px;display:grid;grid-template-columns:1fr 1fr;gap:35px}.signature{text-align:center;padding-top:22px;border-top:1px solid #555;font-size:9px}
+  .legal{margin-top:12px;text-align:center;font-size:7.5px;color:#555;border-top:1px solid #bbb;padding-top:6px}
+  .no-break{break-inside:avoid}
   </style></head><body>
-  <div class="print-header">
-    <div class="company">${esc(state.config.company)}</div>
-    <div class="subtitle">SERRALHERIA E ESQUADRIAS</div>
-    <div class="contact">${esc(state.config.address)} • Tel./WhatsApp: ${esc(state.config.phone)} • CNPJ: ${esc(state.config.cnpj)}</div>
+  <div class="top">
+    <div class="brand"><h1>${esc(state.config.company)}</h1><div class="sub">SERRALHERIA E ESQUADRIAS</div>
+      <div class="contact">${esc(state.config.address)}<br>Tel./WhatsApp: ${esc(state.config.phone)}<br>CNPJ: ${esc(state.config.cnpj)}</div>
+    </div>
+    <div class="number"><div class="label">DOCUMENTO</div><div class="value">ORÇAMENTO Nº ${esc(q.number)}</div>
+      <div class="label">DATA</div><div>${q.date?q.date.split('-').reverse().join('/'):'—'}</div>
+      <div class="notice">ORÇAMENTO<br>NÃO É DOCUMENTO FISCAL</div>
+    </div>
   </div>
-  <div class="date">Rio de Janeiro, ${q.date ? q.date.split('-').reverse().join('/') : '____/____/______'}.</div>
-  <div class="title">ORÇAMENTO</div>
-  <div class="recipient">À Ilma.<br><strong>${esc(c.name||q.clientName)}</strong><br>${esc(c.address||'')} ${c.number?'nº '+esc(c.number):''} ${esc(c.complement||'')}<br>${esc(c.district||'')} ${c.city?'– '+esc(c.city):''}</div>
-  <div class="intro">Prezada(o) Senhora(o),<br>Vimos pela presente apresentar o nosso orçamento para fornecimento e colocação de esquadrias, conforme segue abaixo.</div>
-  ${itemText}
-  <div class="total">Importa o Valor Total Deste Orçamento Em: ${money(q.total)}</div>
+  <div class="title">ORÇAMENTO COMERCIAL</div>
+
+  <div class="section-title">PRESTADOR / EMPRESA</div>
+  <div class="box"><div class="cols">
+    <div><div class="field"><b>CNPJ:</b> <span>${esc(state.config.cnpj)}</span></div><div class="field"><b>Nome/Razão Social:</b> <span>${esc(state.config.company)}</span></div><div class="field"><b>Endereço:</b> <span>${esc(state.config.address)}</span></div></div>
+    <div><div class="field"><b>Telefone:</b> <span>${esc(state.config.phone)}</span></div><div class="field"><b>Responsável:</b> <span>${esc(q.seller||'—')}</span></div><div class="field"><b>Obra:</b> <span>${esc(q.work||'—')}</span></div></div>
+  </div></div>
+
+  <div class="section-title">CLIENTE / TOMADOR</div>
+  <div class="box"><div class="cols">
+    <div><div class="field"><b>CPF/CNPJ:</b> <span>${esc(c.doc||'—')}</span></div><div class="field"><b>Nome/Razão Social:</b> <span>${esc(c.name||q.clientName)}</span></div><div class="field"><b>Endereço:</b> <span>${esc(address||'—')}</span></div></div>
+    <div><div class="field"><b>Município/UF:</b> <span>${esc(city||'—')}</span></div><div class="field"><b>Telefone/WhatsApp:</b> <span>${esc(c.whatsapp||c.phone||'—')}</span></div><div class="field"><b>E-mail:</b> <span>${esc(c.email||'—')}</span></div></div>
+  </div></div>
+
+  <div class="section-title">DISCRIMINAÇÃO DOS PRODUTOS / SERVIÇOS</div>
+  <table class="items"><thead><tr><th style="width:5%">Item</th><th>Descrição</th><th style="width:7%">Qtd.</th><th style="width:15%">Medidas</th><th style="width:15%">Valor unit.</th><th style="width:15%">Valor total</th></tr></thead>
+  <tbody>${rows}</tbody></table>
+
+  <div class="value-box">
+    <div><b>DESCRIÇÃO TÉCNICA</b>${detail}</div>
+    <div><b>VALOR DO ORÇAMENTO</b><div class="value-big">${money(q.total)}</div></div>
+  </div>
+
+  <div class="section-title">CONDIÇÕES COMERCIAIS</div>
   <div class="conditions">
-    <p><b>Condições de Pagamento:</b> ${esc(q.payment||'A combinar')}.</p>
-    <p><b>Prazo de Entrega:</b> ${esc(q.delivery||'A combinar')}.</p>
-    <p><b>Garantia:</b> ${esc(q.warranty||'A combinar')} de assistência técnica sobre os serviços acima discriminados.</p>
-    ${q.notes?`<p><b>Observações:</b> ${esc(q.notes)}</p>`:''}
+    <div><b>FORMA DE PAGAMENTO</b><span>${esc(q.payment||'A combinar')}</span></div>
+    <div><b>PRAZO DE ENTREGA</b><span>${esc(q.delivery||'A combinar')}</span></div>
+    <div><b>GARANTIA</b><span>${esc(q.warranty||'A combinar')}</span></div>
   </div>
-  <div class="footer-date">Rio de Janeiro, ____ / ____ / ______</div>
-  <div class="signature"><div class="signature-line">${esc(state.config.company)}<br>CNPJ: ${esc(state.config.cnpj)} • ${esc(state.config.phone)}</div></div>
+
+  <div class="section-title" style="margin-top:8px">OUTRAS INFORMAÇÕES</div>
+  <div class="notes">${esc(q.notes||'Validade do orçamento: '+(q.validity||10)+' dias.')}</div>
+
+  <div class="footer">
+    <div class="signature">Cliente / Contratante<br>${esc(c.name||q.clientName)}</div>
+    <div class="signature">${esc(state.config.company)}<br>CNPJ: ${esc(state.config.cnpj)}</div>
+  </div>
+  <div class="legal">Este documento é uma proposta/orçamento comercial e não substitui documento fiscal. A NFS-e oficial, quando aplicável, deve ser emitida pelo sistema fiscal competente.</div>
   <script>window.onload=()=>window.print()<\/script></body></html>`);
   w.document.close();
 }

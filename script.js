@@ -131,18 +131,18 @@ async function load(){
 }
 
 function setFirebaseStatus(status){
-  const el=document.getElementById('firebaseStatus');
-  if(!el) return;
-  el.classList.remove('online','offline');
-  if(status==='online'){
-    el.textContent='🟢 Firebase conectado';
-    el.classList.add('online');
-  }else if(status==='connecting'){
-    el.textContent='🟡 Firebase conectando...';
-    el.classList.add('offline');
+  const overlay=document.getElementById('appLoading');
+  const text=document.getElementById('appLoadingText');
+  if(!overlay || !text) return;
+  if(status==='connecting'){
+    overlay.classList.remove('hide');
+    text.textContent='Carregando...';
+  }else if(status==='online'){
+    text.textContent='Carregado';
+    setTimeout(()=>overlay.classList.add('hide'),700);
   }else{
-    el.textContent='🔴 Firebase desconectado';
-    el.classList.add('offline');
+    text.textContent='Carregado';
+    setTimeout(()=>overlay.classList.add('hide'),900);
   }
 }
 
@@ -533,7 +533,7 @@ function printQuote(id){
   .no-break{break-inside:avoid}
   </style></head><body>
   <div class="top">
-    <div class="brand"><h1>${esc(state.config.company)}</h1><div class="sub">SERRALHERIA E ESQUADRIAS</div>
+    <div class="brand">${state.config.logo?`<img class="print-logo" src="${esc(state.config.logo)}" alt="Logo">`:``}<h1>${esc(state.config.company)}</h1><div class="sub">SERRALHERIA E ESQUADRIAS</div>
       <div class="contact">${esc(state.config.address)}<br>Tel./WhatsApp: ${esc(state.config.phone)}<br>CNPJ: ${esc(state.config.cnpj)}</div>
     </div>
     <div class="number"><div class="label">DOCUMENTO</div><div class="value">ORÇAMENTO Nº ${esc(q.number)}</div>
@@ -614,11 +614,52 @@ function renderModels(){
 function renderMaterials(){
   document.getElementById('materialsTable').innerHTML=state.materials.map(m=>`<tr><td>${esc(m.name)}</td><td>${esc(m.category)}</td><td>${esc(m.unit)}</td><td>${money(m.cost)}</td><td><button class="mini-btn danger" data-delete-material="${m.id}">Excluir</button></td></tr>`).join('');
 }
-function saveConfig(){
-  state.config.company=document.getElementById('cfgCompany').value;state.config.cnpj=document.getElementById('cfgCnpj').value;state.config.phone=document.getElementById('cfgPhone').value;state.config.address=document.getElementById('cfgAddress').value;state.config.logo=document.getElementById('cfgLogo').value;state.config.color=document.getElementById('cfgColor').value;save();
+function applyLogo(){
+  const logo=state.config.logo||'';
+  const img=document.getElementById('brandLogo');
+  const fallback=document.getElementById('brandLogoFallback');
+  const preview=document.getElementById('logoPreview');
+  if(img){
+    if(logo){ img.src=logo; img.classList.remove('hidden'); img.onerror=()=>{img.classList.add('hidden'); if(fallback)fallback.classList.remove('hidden');}; }
+    else { img.removeAttribute('src'); img.classList.add('hidden'); }
+  }
+  if(fallback) fallback.classList.toggle('hidden',!!logo);
+  if(preview){
+    preview.innerHTML=logo ? `<img src="${esc(logo)}" alt="Logo"><span class="muted">Logo cadastrada. Ela será usada no sistema e na impressão.</span>` : '<span class="muted">Nenhuma logo cadastrada ainda.</span>';
+  }
+}
+
+function readLogoFile(file){
+  return new Promise((resolve,reject)=>{
+    if(!file){resolve('');return;}
+    const reader=new FileReader();
+    reader.onload=()=>resolve(String(reader.result||''));
+    reader.onerror=reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+async function saveConfig(){
+  state.config.company=document.getElementById('cfgCompany').value;
+  state.config.cnpj=document.getElementById('cfgCnpj').value;
+  state.config.phone=document.getElementById('cfgPhone').value;
+  state.config.address=document.getElementById('cfgAddress').value;
+  state.config.logo=document.getElementById('cfgLogo').value.trim();
+  state.config.color=document.getElementById('cfgColor').value;
+  const file=document.getElementById('cfgLogoFile')?.files?.[0];
+  if(file) state.config.logo=await readLogoFile(file);
+  await save();
+  applyLogo();
+  toast('Configurações salvas.');
 }
 function loadConfig(){
-  document.getElementById('cfgCompany').value=state.config.company||'';document.getElementById('cfgCnpj').value=state.config.cnpj||'';document.getElementById('cfgPhone').value=state.config.phone||'';document.getElementById('cfgAddress').value=state.config.address||'';document.getElementById('cfgLogo').value=state.config.logo||'';document.getElementById('cfgColor').value=state.config.color||'#172033';
+  document.getElementById('cfgCompany').value=state.config.company||'';
+  document.getElementById('cfgCnpj').value=state.config.cnpj||'';
+  document.getElementById('cfgPhone').value=state.config.phone||'';
+  document.getElementById('cfgAddress').value=state.config.address||'';
+  document.getElementById('cfgLogo').value=(state.config.logo||'').startsWith('data:')?'':(state.config.logo||'');
+  document.getElementById('cfgColor').value=state.config.color||'#d71920';
+  applyLogo();
 }
 function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]))}
 
@@ -656,6 +697,8 @@ document.addEventListener('DOMContentLoaded',async()=>{
   document.getElementById('modelForm').onsubmit=e=>{e.preventDefault();state.models.push({id:uid('m'),name:document.getElementById('modelName').value,category:document.getElementById('modelCategory').value,description:document.getElementById('modelDescription').value,type:'fixed'});save();closeModal('modelModal');e.target.reset();renderModels()};
   document.getElementById('materialForm').onsubmit=e=>{e.preventDefault();state.materials.push({id:uid('mat'),name:document.getElementById('materialName').value,category:document.getElementById('materialCategory').value,unit:document.getElementById('materialUnit').value,cost:Number(document.getElementById('materialCost').value)||0});save();closeModal('materialModal');e.target.reset();renderMaterials()};
   document.getElementById('saveConfigBtn').onclick=saveConfig;
+  document.getElementById('cfgLogoFile')?.addEventListener('change',async e=>{const file=e.target.files?.[0]; if(!file)return; state.config.logo=await readLogoFile(file); applyLogo();});
+  document.getElementById('cfgLogo')?.addEventListener('input',e=>{state.config.logo=e.target.value.trim(); applyLogo();});
   document.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>closeModal(b.dataset.close));
   document.addEventListener('keydown',e=>{if(e.key==='Escape')document.querySelectorAll('.modal.open').forEach(m=>m.classList.remove('open'))});
   document.addEventListener('click',async e=>{

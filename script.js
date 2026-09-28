@@ -520,7 +520,7 @@ function printQuote(id){
   @page{size:A4;margin:12mm 12mm 14mm}
   *{box-sizing:border-box}body{font-family:Arial,Helvetica,sans-serif;color:#111;font-size:10px;margin:0;line-height:1.35}
   .top{border:1px solid #333;display:grid;grid-template-columns:1fr 220px;min-height:92px}
-  .brand{padding:11px;border-right:1px solid #333}.brand h1{font-size:18px;margin:0 0 2px;text-transform:uppercase}.brand .sub{font-size:9px;font-weight:bold}.brand .contact{font-size:8.5px;margin-top:8px}
+  .brand{padding:10px;border-right:1px solid #333;min-height:92px;overflow:hidden}.brand h1{font-size:17px;margin:2px 0 2px;text-transform:uppercase;line-height:1.05}.brand .sub{font-size:8px;font-weight:bold}.brand .contact{font-size:7.5px;margin-top:6px;line-height:1.3}.print-logo{width:64px;height:64px;max-width:64px;max-height:64px;object-fit:contain;display:block;float:left;margin:0 10px 3px 0;background:transparent;border:0}
   .number{padding:10px}.number .label{font-size:8px;font-weight:bold}.number .value{font-size:14px;font-weight:bold;margin:3px 0 8px}.number .notice{border:1px solid #777;padding:5px;font-size:8px;font-weight:bold;text-align:center}
   .title{text-align:center;border:1px solid #333;border-top:0;padding:6px;font-size:15px;font-weight:bold;letter-spacing:.5px}
   .section-title{background:#e9edf2;border:1px solid #555;border-bottom:0;padding:4px 6px;font-size:9px;font-weight:bold;text-transform:uppercase}

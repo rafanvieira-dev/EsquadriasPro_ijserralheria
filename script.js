@@ -57,8 +57,8 @@ const state = {
     cnpj:'60.131.039/0001-70',
     phone:'(21) 97616-2768',
     address:'Rua Santos Rodrigues, 201 – Estácio – RJ',
-    logo:'',
-    color:'#172033'
+    logo:'assets/logo.png',
+    color:'#d71920'
   }
 };
 
@@ -107,6 +107,7 @@ async function load(){
     state.models = firebaseModels.length ? firebaseModels : state.models;
 
     if(configSnap.exists()) state.config = {...state.config, ...configSnap.data()};
+    if(!state.config.logo) state.config.logo = 'assets/logo.png';
 
     firebaseReady = true;
     setFirebaseStatus('online');

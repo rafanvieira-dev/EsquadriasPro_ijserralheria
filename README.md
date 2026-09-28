@@ -37,3 +37,6 @@ Para transformar o protótipo em um sistema comercial completo, a próxima vers�
 
 ## v4 — Materiais
 Material selecionável da lista cadastrada em Materiais, com preço puxado automaticamente e cálculo pelo número de unidades/quantidade. O restante do sistema foi mantido.
+
+## Logo da empresa
+A logo fornecida pelo cliente foi incluída em `assets/logo.png` e definida como logo padrão do sistema. Ela aparece no menu lateral e na impressão dos orçamentos. Também é possível substituir a logo em Configurações.

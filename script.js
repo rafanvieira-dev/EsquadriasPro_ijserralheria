@@ -178,8 +178,15 @@ async function saveOne(collectionName, data){
     localStorage.setItem(KEY, JSON.stringify(state));
     return true;
   } catch(error) {
-    console.error('Erro ao salvar:', error);
+    console.error('Erro ao salvar no Firebase:', error);
     localStorage.setItem(KEY, JSON.stringify(state));
+    if(error?.code === 'permission-denied') {
+      toast('Firebase recusou a gravação. Verifique Authentication e as Rules.');
+    } else if(error?.code === 'auth/operation-not-allowed') {
+      toast('Ative o login Anonymous no Firebase Authentication.');
+    } else {
+      toast('Não foi possível gravar no Firebase. Veja F12 > Console.');
+    }
     return false;
   }
 }
@@ -393,6 +400,11 @@ function calcTotal(){
 }
 async function saveQuote(e){
   if(e){ e.preventDefault(); e.stopPropagation(); }
+  const concludeBtn=document.getElementById('concludeQuoteBtn');
+  const topSaveBtn=document.getElementById('saveQuoteBtn');
+  const buttons=[concludeBtn,topSaveBtn].filter(Boolean);
+  buttons.forEach(b=>{b.disabled=true;});
+  if(concludeBtn) concludeBtn.textContent='⏳ Salvando no Firebase...';
   try{
     if(!Array.isArray(state.quotes)) state.quotes=[];
     if(!Array.isArray(state.clients)) state.clients=[];
@@ -447,15 +459,21 @@ async function saveQuote(e){
       throw new Error('Não foi possível salvar o orçamento no Firebase.');
     }
 
-    toast('Orçamento salvo com sucesso no Firebase.');
+    toast('Orçamento concluído e salvo no Firebase.');
     renderQuotes();
     renderDashboard();
     setTimeout(()=>go('orcamentos'),150);
     return true;
   }catch(error){
     console.error('Erro ao salvar orçamento:',error);
-    alert('Não foi possível salvar o orçamento. Abra F12 > Console para ver o erro.');
+    let mensagem='Não foi possível salvar o orçamento.';
+    if(error?.code === 'permission-denied') mensagem='O Firebase recusou a gravação. Verifique se o Authentication Anonymous está ativo e se as Rules permitem request.auth != null.';
+    else if(error?.message) mensagem += '\n\n' + error.message;
+    alert(mensagem);
     return false;
+  }finally{
+    buttons.forEach(b=>{b.disabled=false;});
+    if(concludeBtn) concludeBtn.textContent='✅ Concluir e salvar orçamento';
   }
 }
 function editQuote(id){
@@ -618,6 +636,11 @@ document.addEventListener('DOMContentLoaded',async()=>{
   if(saveQuoteBtn){
     saveQuoteBtn.type='button';
     saveQuoteBtn.addEventListener('click',saveQuote);
+  }
+  const concludeQuoteBtn=document.getElementById('concludeQuoteBtn');
+  if(concludeQuoteBtn){
+    concludeQuoteBtn.type='button';
+    concludeQuoteBtn.addEventListener('click',saveQuote);
   }
   const quoteForm=document.getElementById('quoteForm');
   if(quoteForm){

@@ -236,7 +236,7 @@ function renderDashboard(){
   document.getElementById('statPendentes').textContent=state.quotes.filter(q=>['Rascunho','Enviado'].includes(q.status)).length;
   document.getElementById('statValor').textContent=money(state.quotes.reduce((s,q)=>s+Number(q.total||0),0));
   const rows=state.quotes.slice(-5).reverse();
-  document.getElementById('recentQuotes').innerHTML=rows.length?`<table><thead><tr><th>Nº</th><th>Cliente</th><th>Total</th><th>Status</th></tr></thead><tbody>${rows.map(q=>`<tr><td>${q.number}</td><td>${esc(q.clientName||'—')}</td><td>${money(q.total)}</td><td><span class="status ${q.status.replace(' ','\\\\ ')}">${q.status}</span></td></tr>`).join('')}</tbody></table>`:'<div class="empty-state"><p>Nenhum orçamento cadastrado.</p></div>';
+  document.getElementById('recentQuotes').innerHTML=rows.length?`<table><thead><tr><th>Nº</th><th>Cliente</th><th>Total</th><th>Status</th></tr></thead><tbody>${rows.map(q=>`<tr><td>${q.number}</td><td>${esc(q.clientName\vert{}\vert{}'—')}</td><td>${money(q.total)}</td><td><span class="status ${q.status.replace(' ','\\\\ ')}">${q.status}</span></td></tr>`).join('')}</tbody></table>`:'<div class="empty-state"><p>Nenhum orçamento cadastrado.</p></div>';
 }
 function renderClients(){
   const term=(document.getElementById('clientSearch')?.value||'').toLowerCase();
@@ -246,12 +246,17 @@ function renderClients(){
     return `<tr><td><span class="client-link" data-client="${c.id}">${esc(c.name)}</span></td><td>${esc(c.doc||'—')}</td><td>${esc(c.whatsapp||c.phone||'—')}</td><td>${esc(c.city||'—')}</td><td>${count}</td><td class="actions"><button class="mini-btn" data-edit-client="${c.id}">Editar</button><button class="mini-btn danger" data-delete-client="${c.id}">Excluir</button></td></tr>`;
   }).join('')||'<tr><td colspan="6" class="muted">Nenhum cliente encontrado.</td></tr>';
 }
+
+// ==========================================
+// RENDERIZAÇÃO DOS ORÇAMENTOS (Com botão Recibo)
+// ==========================================
 function renderQuotes(){
   const term=(document.getElementById('quoteSearch')?.value||'').toLowerCase();
   const filter=document.getElementById('quoteStatusFilter')?.value||'';
   const list=state.quotes.filter(q=>(q.number+' '+q.clientName).toLowerCase().includes(term)&&(filter?q.status===filter:true));
-  document.getElementById('quotesTable').innerHTML=list.map(q=>`<tr><td>${q.number}</td><td>${esc(q.clientName||'—')}</td><td>${q.date||'—'}</td><td>${q.items?.length||0}</td><td>${money(q.total)}</td><td><span class="status ${q.status.replace(' ','\\\\ ')}">${q.status}</span></td><td class="actions"><button class="mini-btn" data-edit-quote="${q.id}">Editar</button><button class="mini-btn" data-print-quote="${q.id}">Imprimir</button><button class="mini-btn" data-duplicate-quote="${q.id}">Duplicar</button><button class="mini-btn danger" data-delete-quote="${q.id}">Excluir</button></td></tr>`).join('')||'<tr><td colspan="7" class="muted">Nenhum orçamento encontrado.</td></tr>';
+  document.getElementById('quotesTable').innerHTML=list.map(q=>`<tr><td>${q.number}</td><td>${esc(q.clientName||'—')}</td><td>${q.date||'—'}</td><td>${q.items?.length||0}</td><td>${money(q.total)}</td><td><span class="status ${q.status.replace(' ','\\\\ ')}">${q.status}</span></td><td class="actions"><button class="mini-btn" data-edit-quote="${q.id}">Editar</button><button class="mini-btn" data-print-quote="${q.id}">Imprimir</button><button class="mini-btn" data-receipt-quote="${q.id}">Recibo</button><button class="mini-btn" data-duplicate-quote="${q.id}">Duplicar</button><button class="mini-btn danger" data-delete-quote="${q.id}">Excluir</button></td></tr>`).join('')||'<tr><td colspan="7" class="muted">Nenhum orçamento encontrado.</td></tr>';
 }
+
 function populateClientSelect(selected=''){
   const sel=document.getElementById('quoteClient');
   sel.innerHTML='<option value="">Selecione um cliente</option>'+state.clients.map(c=>`<option value="${c.id}" ${c.id===selected?'selected':''}>${esc(c.name)}</option>`).join('');
@@ -583,6 +588,61 @@ function printQuote(id){
   <script>window.onload=()=>window.print()<\/script></body></html>`);
   w.document.close();
 }
+
+// ==========================================
+// FUNÇÃO PARA IMPRIMIR O RECIBO FISCAL
+// ==========================================
+function printReceipt(id){
+  const q=state.quotes.find(x=>x.id===id);if(!q)return;
+  const c=state.clients.find(x=>x.id===q.clientId)||{};
+  const w=window.open('','_blank');if(!w){alert('Permita pop-ups para imprimir.');return}
+
+  w.document.write(`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">
+  <title>Recibo ${esc(q.number)}</title>
+  <style>
+  @page{size:A4;margin:15mm}
+  body{font-family:Arial,sans-serif;color:#000;padding:20px;max-width:800px;margin:0 auto;}
+  .recibo-container{border:2px solid #000;padding:20px;border-radius:8px;}
+  .cabecalho-recibo{text-align:center;border-bottom:2px solid #000;margin-bottom:20px;padding-bottom:10px;}
+  .cabecalho-recibo h2{margin:0;font-size:24px;text-transform:uppercase;}
+  .cabecalho-recibo p{margin:5px 0 0;font-size:12px;}
+  h3{text-align:center;font-size:20px;margin-bottom:30px;}
+  .dados-recibo p{font-size:14px;margin-bottom:10px;line-height:1.6;}
+  .dados-recibo strong{display:inline-block;width:150px;}
+  .assinatura{margin-top:80px;text-align:center;}
+  .assinatura p{margin:5px 0;}
+  .valor-destaque{font-size:18px;font-weight:bold;}
+  .print-logo{max-width:120px;max-height:60px;margin-bottom:10px;}
+  </style></head><body>
+  <div class="recibo-container">
+      <div class="cabecalho-recibo">
+          ${state.config.logo ? `<img class="print-logo" src="${esc(state.config.logo)}" alt="Logo">` : ''}
+          <h2>${esc(state.config.company)}</h2>
+          <p>CNPJ: ${esc(state.config.cnpj)} | Tel: ${esc(state.config.phone)}</p>
+          <p>${esc(state.config.address)}</p>
+      </div>
+
+      <h3>RECIBO DE PAGAMENTO</h3>
+
+      <div class="dados-recibo">
+          <p><strong>Nº do Orçamento:</strong> ${esc(q.number)}</p>
+          <p><strong>Cliente:</strong> ${esc(c.name || q.clientName)}</p>
+          <p><strong>CPF/CNPJ:</strong> ${esc(c.doc || '—')}</p>
+          <p><strong>Referente a:</strong> Serviços de Esquadrias e Serralheria (${esc(q.work || 'Orçamento aprovado')})</p>
+          <p><strong>Valor Total:</strong> <span class="valor-destaque">${money(q.total)}</span></p>
+          <p><strong>Data de Emissão:</strong> ${new Date().toLocaleDateString('pt-BR')}</p>
+      </div>
+
+      <div class="assinatura">
+          <p>_________________________________________________</p>
+          <p>${esc(state.config.company)}</p>
+          <p>Assinatura do Emissor</p>
+      </div>
+  </div>
+  <script>window.onload=()=>window.print()<\/script></body></html>`);
+  w.document.close();
+}
+
 function openDrawing(div){
   const model=state.models.find(m=>m.id===div.querySelector('.item-model').value)||state.models[0];
   const w=Number(div.querySelector('.item-w').value)||0,h=Number(div.querySelector('.item-h').value)||0;
@@ -702,12 +762,17 @@ document.addEventListener('DOMContentLoaded',async()=>{
   document.getElementById('cfgLogo')?.addEventListener('input',e=>{state.config.logo=e.target.value.trim(); applyLogo();});
   document.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>closeModal(b.dataset.close));
   document.addEventListener('keydown',e=>{if(e.key==='Escape')document.querySelectorAll('.modal.open').forEach(m=>m.classList.remove('open'))});
+  
+  // ==========================================
+  // ATUALIZAÇÃO DO CLIQUE: INCLUI A CHAMADA PARA RECIBO
+  // ==========================================
   document.addEventListener('click',async e=>{
     const t=e.target;
     if(t.dataset.editClient)editClient(t.dataset.editClient);
     if(t.dataset.deleteClient){if(confirm('Excluir este cliente?')){const id=t.dataset.deleteClient;state.clients=state.clients.filter(c=>c.id!==id);await deleteOne(COLLECTIONS.clients,id);renderClients();}}
     if(t.dataset.editQuote)editQuote(t.dataset.editQuote);
     if(t.dataset.printQuote)printQuote(t.dataset.printQuote);
+    if(t.dataset.receiptQuote)printReceipt(t.dataset.receiptQuote); // NOVA FUNÇÃO AQUI
     if(t.dataset.duplicateQuote)duplicateQuote(t.dataset.duplicateQuote);
     if(t.dataset.deleteQuote){if(confirm('Excluir este orçamento?')){const id=t.dataset.deleteQuote;state.quotes=state.quotes.filter(q=>q.id!==id);await deleteOne(COLLECTIONS.quotes,id);renderQuotes();renderDashboard();}}
     if(t.dataset.modelDraw){const m=state.models.find(x=>x.id===t.dataset.modelDraw);document.getElementById('drawingLarge').innerHTML=`<h3>${esc(m.name)}</h3>${getSvg(m.type,1200,800)}`;openModal('drawingModal')}

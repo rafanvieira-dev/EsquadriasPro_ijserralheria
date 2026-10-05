@@ -7,13 +7,12 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <div id="appLoading" class="app-loading"><div class="app-loading-box"><div class="loading-spinner"></div><strong id="appLoadingText">Carregando...</strong></div></div>
   <div class="app-shell">
     <aside class="sidebar" id="sidebar">
-      <div class="brand">
-        <div class="brand-mark">EP</div>
-        <div>
-          <strong>EsquadriasPro</strong>
-          <small>Orçamentos & Produção</small>
+      <div class="brand brand-logo-only">
+        <div class="brand-logo-frame" id="brandLogoWrap">
+          <img id="brandLogo" class="brand-logo" src="assets/logo.png" alt="Logo da empresa">
         </div>
       </div>
 
@@ -37,7 +36,7 @@
     <main class="main">
       <header class="topbar">
         <button class="mobile-menu" id="mobileMenu">☰</button>
-        <div class="breadcrumb" id="breadcrumb">Dashboard</div><div id="firebaseStatus" class="firebase-status offline">🔴 Firebase conectando...</div>
+        <div class="breadcrumb" id="breadcrumb">Dashboard</div>
         <div class="top-actions">
           <button class="icon-btn" title="Salvar dados" id="saveBtn">💾</button>
           <button class="user-pill">Administrador ▾</button>
@@ -228,9 +227,11 @@
               <label>CNPJ<input id="cfgCnpj"></label>
               <label>Telefone / WhatsApp<input id="cfgPhone"></label>
               <label>Endereço<input id="cfgAddress"></label>
-              <label>Logotipo (URL)<input id="cfgLogo" placeholder="Opcional"></label>
+              <label>Logotipo (URL)<input id="cfgLogo" placeholder="Cole a URL da logo (opcional)"></label>
+              <label>Enviar logotipo<input id="cfgLogoFile" type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml"></label>
               <label>Cor principal<input type="color" id="cfgColor" value="#172033"></label>
             </div>
+            <div id="logoPreview" class="logo-preview"></div>
             <div class="form-actions"><button class="btn primary" id="saveConfigBtn">Salvar configurações</button></div>
           </div>
         </section>

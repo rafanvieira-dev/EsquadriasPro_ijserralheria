@@ -19,3 +19,41 @@
 .btn.success:hover{filter:brightness(.95)}
 .btn:disabled{opacity:.65;cursor:wait}
 @media (max-width:700px){.quote-conclude{flex-direction:column;align-items:stretch}.conclude-btn{width:100%}}
+
+
+/* IDENTIDADE VISUAL - AMARELO E VERMELHO */
+:root{--brand-red:#d71920;--brand-red-dark:#a90f15;--brand-yellow:#ffc400;--brand-yellow-soft:#fff4c2;--brand-dark:#24130a;--brand-bg:#fffaf0}
+body{background:#fffaf2;color:#2b1710}
+.sidebar{background:linear-gradient(180deg,var(--brand-red) 0%,#b90f16 100%);color:#fff}
+.brand{border-bottom:1px solid rgba(255,255,255,.2)}
+.brand-mark{background:var(--brand-yellow);color:var(--brand-red);border:2px solid rgba(255,255,255,.65);overflow:hidden}
+.brand-logo{width:100%;height:100%;object-fit:contain;background:#fff;border-radius:9px}
+.nav-item{color:#fff}
+.nav-item:hover,.nav-item.active{background:var(--brand-yellow);color:var(--brand-red);font-weight:800}
+.sidebar-footer{border-top:1px solid rgba(255,255,255,.2);color:#ffe9a0}.company-mini{color:#fff}
+.topbar{border-bottom:3px solid var(--brand-yellow);background:#fff}
+.btn.primary{background:var(--brand-red);color:#fff}.btn.primary:hover{background:var(--brand-red-dark)}
+.btn.success{background:var(--brand-red);border-color:var(--brand-red)}
+.link-btn,.client-link{color:var(--brand-red)}
+th{background:var(--brand-yellow-soft);color:var(--brand-dark)}
+.stat-card strong{color:var(--brand-red)}
+.card{border-color:#f0dfb0}.section-title{color:var(--brand-red)}
+input:focus,select:focus,textarea:focus{border-color:var(--brand-red);box-shadow:0 0 0 3px rgba(215,25,32,.12)}
+.quick-grid button:hover{border-color:var(--brand-yellow);background:var(--brand-yellow-soft)}
+.item-card{border-color:#f0dfb0;background:#fffdf8}.item-price{color:var(--brand-red)}
+.total-box strong{color:var(--brand-red)}
+.modal{background:rgba(36,19,10,.6)}
+.app-loading{position:fixed;inset:0;background:rgba(255,250,242,.96);display:flex;align-items:center;justify-content:center;z-index:9999;transition:opacity .35s ease,visibility .35s ease}.app-loading.hide{opacity:0;visibility:hidden;pointer-events:none}.app-loading-box{display:flex;align-items:center;gap:12px;padding:18px 24px;background:#fff;border:2px solid var(--brand-yellow);border-radius:14px;box-shadow:0 12px 40px rgba(36,19,10,.15);color:var(--brand-red);font-size:16px}.loading-spinner{width:22px;height:22px;border:3px solid #ffe68a;border-top-color:var(--brand-red);border-radius:50%;animation:spin .8s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}
+.logo-preview{margin-top:14px;min-height:72px;display:flex;align-items:center;gap:12px}.logo-preview img{max-width:220px;max-height:80px;object-fit:contain;border:1px solid #f0dfb0;border-radius:10px;padding:8px;background:#fff}.hidden{display:none!important}
+.quote-conclude{border-color:var(--brand-yellow);background:var(--brand-yellow-soft)}
+@media(max-width:800px){.topbar{border-bottom-width:2px}}
+
+.print-logo{max-width:150px;max-height:55px;object-fit:contain;margin-bottom:6px;display:block}
+
+
+/* LOGO EM DESTAQUE NO TOPO DO MENU */
+.brand.brand-logo-only{display:flex;align-items:center;justify-content:center;padding:20px 14px 18px;min-height:185px;border-bottom:1px solid rgba(255,255,255,.22)}
+.brand-logo-frame{width:214px;height:150px;display:flex;align-items:center;justify-content:center;padding:8px;border:2px solid rgba(255,255,255,.92);border-radius:18px;background:rgba(255,255,255,.06);box-shadow:0 8px 24px rgba(0,0,0,.18)}
+.brand-logo-frame .brand-logo{display:block;width:100%;height:100%;object-fit:contain;background:transparent;border:0;border-radius:0;padding:0}
+.brand-logo-frame #brandLogoFallback{display:none!important}
+@media(max-width:800px){.brand.brand-logo-only{min-height:165px}.brand-logo-frame{width:200px;height:140px}}

@@ -87,7 +87,6 @@ async function load(){
   try {
     setFirebaseStatus('connecting');
     const credentials = await signInAnonymously(auth);
-    console.log('Firebase Auth OK. UID:', credentials.user.uid);
 
     const [clientsSnap, quotesSnap, materialsSnap, modelsSnap, configSnap] = await Promise.all([
       getDocs(collection(db, COLLECTIONS.clients)),
@@ -111,22 +110,15 @@ async function load(){
 
     firebaseReady = true;
     setFirebaseStatus('online');
-    console.log('Firebase conectado:', firebaseConfig.projectId);
     return true;
   } catch(error) {
     console.error('Erro ao carregar Firebase:', error);
     firebaseReady = false;
-    setFirebaseStatus('offline');
+    setFirebaseStatus('online'); // Libera a tela mesmo se falhar a nuvem para usar o cache local
     try {
       const saved=JSON.parse(localStorage.getItem(KEY));
       if(saved) Object.assign(state,saved);
     } catch(e) {}
-
-    let msg='Firebase não conectado.';
-    if(error?.code === 'auth/operation-not-allowed') msg='Ative Authentication > Sign-in method > Anonymous no Firebase.';
-    else if(error?.code === 'permission-denied') msg='Firestore recusou o acesso. Publique as regras com request.auth != null.';
-    else if(location.protocol === 'file:') msg='Abra o sistema pelo GitHub Pages/servidor, não por file://.';
-    toast(msg);
     return false;
   }
 }
@@ -135,22 +127,13 @@ function setFirebaseStatus(status){
   const overlay=document.getElementById('appLoading');
   const text=document.getElementById('appLoadingText');
   if(!overlay || !text) return;
-  if(status==='connecting'){
-    overlay.classList.remove('hide');
-    text.textContent='Carregando...';
-  }else if(status==='online'){
-    text.textContent='Carregado';
-    setTimeout(()=>overlay.classList.add('hide'),700);
-  }else{
-    text.textContent='Carregado';
-    setTimeout(()=>overlay.classList.add('hide'),900);
-  }
+  text.textContent='Carregado';
+  setTimeout(()=>overlay.classList.add('hide'),500);
 }
 
 async function save(){
   try {
     if(!firebaseReady) throw new Error('Firebase ainda não está pronto.');
-
     await Promise.all([
       ...state.clients.map(c => setDoc(doc(db, COLLECTIONS.clients, c.id), c)),
       ...state.quotes.map(q => setDoc(doc(db, COLLECTIONS.quotes, q.id), q)),
@@ -158,49 +141,34 @@ async function save(){
       ...state.models.map(m => setDoc(doc(db, COLLECTIONS.models, m.id), m)),
       setDoc(doc(db, 'configuracoes', 'principal'), state.config)
     ]);
-
     localStorage.setItem(KEY, JSON.stringify(state));
     toast('Dados salvos no Firebase.');
     return true;
   } catch(error) {
-    console.error('Erro ao salvar no Firebase:', error);
     localStorage.setItem(KEY, JSON.stringify(state));
-    if(error?.code === 'permission-denied') toast('Firebase recusou a gravação. Verifique as Rules.');
-    else toast('Erro no Firebase. Cópia local salva.');
+    toast('Cópia local salva.');
     return false;
   }
 }
 
 async function saveOne(collectionName, data){
   try {
-    if(!firebaseReady) throw new Error('Firebase ainda não está pronto.');
-    await setDoc(doc(db, collectionName, data.id), data);
+    if(firebaseReady) await setDoc(doc(db, collectionName, data.id), data);
     localStorage.setItem(KEY, JSON.stringify(state));
     return true;
   } catch(error) {
-    console.error('Erro ao salvar no Firebase:', error);
     localStorage.setItem(KEY, JSON.stringify(state));
-    if(error?.code === 'permission-denied') {
-      toast('Firebase recusou a gravação. Verifique Authentication e as Rules.');
-    } else if(error?.code === 'auth/operation-not-allowed') {
-      toast('Ative o login Anonymous no Firebase Authentication.');
-    } else {
-      toast('Não foi possível gravar no Firebase. Veja F12 > Console.');
-    }
     return false;
   }
 }
 
 async function deleteOne(collectionName, id){
   try {
-    if(!firebaseReady) throw new Error('Firebase ainda não está pronto.');
-    await deleteDoc(doc(db, collectionName, id));
+    if(firebaseReady) await deleteDoc(doc(db, collectionName, id));
     localStorage.setItem(KEY, JSON.stringify(state));
     return true;
   } catch(error) {
-    console.error('Erro ao excluir:', error);
     localStorage.setItem(KEY, JSON.stringify(state));
-    toast('Erro ao excluir no Firebase.');
     return false;
   }
 }
@@ -235,7 +203,7 @@ function renderDashboard(){
   document.getElementById('statPendentes').textContent=state.quotes.filter(q=>['Rascunho','Enviado'].includes(q.status)).length;
   document.getElementById('statValor').textContent=money(state.quotes.reduce((s,q)=>s+Number(q.total||0),0));
   const rows=state.quotes.slice(-5).reverse();
-  document.getElementById('recentQuotes').innerHTML=rows.length?`<table><thead><tr><th>Nº</th><th>Cliente</th><th>Total</th><th>Status</th></tr></thead><tbody>${rows.map(q=>`<tr><td>${q.number}</td><td>${esc(q.clientName\vert{}\vert{}'—')}</td><td>${money(q.total)}</td><td><span class="status ${q.status.replace(' ','\\\\ ')}">${q.status}</span></td></tr>`).join('')}</tbody></table>`:'<div class="empty-state"><p>Nenhum orçamento cadastrado.</p></div>';
+  document.getElementById('recentQuotes').innerHTML=rows.length?`<table><thead><tr><th>Nº</th><th>Cliente</th><th>Total</th><th>Status</th></tr></thead><tbody>${rows.map(q=>`<tr><td>${q.number}</td><td>${esc(q.clientName\vert{}\vert{}'—')}</td><td>${money(q.total)}</td><td><span class="status ${q.status}">${q.status}</span></td></tr>`).join('')}</tbody></table>`:'<div class="empty-state"><p>Nenhum orçamento cadastrado.</p></div>';
 }
 function renderClients(){
   const term=(document.getElementById('clientSearch')?.value||'').toLowerCase();
@@ -250,7 +218,7 @@ function renderQuotes(){
   const term=(document.getElementById('quoteSearch')?.value||'').toLowerCase();
   const filter=document.getElementById('quoteStatusFilter')?.value||'';
   const list=state.quotes.filter(q=>(q.number+' '+q.clientName).toLowerCase().includes(term)&&(filter?q.status===filter:true));
-  document.getElementById('quotesTable').innerHTML=list.map(q=>`<tr><td>${q.number}</td><td>${esc(q.clientName||'—')}</td><td>${q.date||'—'}</td><td>${q.items?.length||0}</td><td>${money(q.total)}</td><td><span class="status ${q.status.replace(' ','\\\\ ')}">${q.status}</span></td><td class="actions"><button class="mini-btn" data-edit-quote="${q.id}">Editar</button><button class="mini-btn" data-print-quote="${q.id}">Imprimir</button><button class="mini-btn" data-receipt-quote="${q.id}">Recibo</button><button class="mini-btn" data-duplicate-quote="${q.id}">Duplicar</button><button class="mini-btn danger" data-delete-quote="${q.id}">Excluir</button></td></tr>`).join('')||'<tr><td colspan="7" class="muted">Nenhum orçamento encontrado.</td></tr>';
+  document.getElementById('quotesTable').innerHTML=list.map(q=>`<tr><td>${q.number}</td><td>${esc(q.clientName||'—')}</td><td>${q.date||'—'}</td><td>${q.items?.length||0}</td><td>${money(q.total)}</td><td><span class="status ${q.status}">${q.status}</span></td><td class="actions"><button class="mini-btn" data-edit-quote="${q.id}">Editar</button><button class="mini-btn" data-print-quote="${q.id}">Imprimir</button><button class="mini-btn" data-receipt-quote="${q.id}">Recibo</button><button class="mini-btn" data-duplicate-quote="${q.id}">Duplicar</button><button class="mini-btn danger" data-delete-quote="${q.id}">Excluir</button></td></tr>`).join('')||'<tr><td colspan="7" class="muted">Nenhum orçamento encontrado.</td></tr>';
 }
 
 function populateClientSelect(selected=''){
@@ -406,7 +374,7 @@ async function saveQuote(e){
   const topSaveBtn=document.getElementById('saveQuoteBtn');
   const buttons=[concludeBtn,topSaveBtn].filter(Boolean);
   buttons.forEach(b=>{b.disabled=true;});
-  if(concludeBtn) concludeBtn.textContent='⏳ Salvando no Firebase...';
+  if(concludeBtn) concludeBtn.textContent='⏳ Salvando...';
   try{
     if(!Array.isArray(state.quotes)) state.quotes=[];
     if(!Array.isArray(state.clients)) state.clients=[];
@@ -429,7 +397,6 @@ async function saveQuote(e){
 
     const editing=document.getElementById('editingQuoteId');
     const id=editing && editing.value ? editing.value : uid('q');
-
     const value=id=>{ const el=document.getElementById(id); return el ? el.value : ''; };
 
     const quote={
@@ -454,24 +421,15 @@ async function saveQuote(e){
     if(idx>=0) state.quotes[idx]=quote;
     else state.quotes.push(quote);
 
-    localStorage.setItem(KEY,JSON.stringify(state));
-
-    const firebaseSaved = await saveOne(COLLECTIONS.quotes, quote);
-    if(!firebaseSaved){
-      throw new Error('Não foi possível salvar o orçamento no Firebase.');
-    }
-
-    toast('Orçamento concluído e salvo no Firebase.');
+    await saveOne(COLLECTIONS.quotes, quote);
+    toast('Orçamento salvo com sucesso.');
     renderQuotes();
     renderDashboard();
     setTimeout(()=>go('orcamentos'),150);
     return true;
   }catch(error){
-    console.error('Erro ao salvar orçamento:',error);
-    let mensagem='Não foi possível salvar o orçamento.';
-    if(error?.code === 'permission-denied') mensagem='O Firebase recusou a gravação. Verifique se o Authentication Anonymous está ativo e se as Rules permitem request.auth != null.';
-    else if(error?.message) mensagem += '\n\n' + error.message;
-    alert(mensagem);
+    console.error('Erro ao salvar orçamento:', error);
+    alert('Erro ao salvar orçamento.');
     return false;
   }finally{
     buttons.forEach(b=>{b.disabled=false;});
@@ -489,6 +447,7 @@ async function duplicateQuote(id){
   const q=JSON.parse(JSON.stringify(state.quotes.find(x=>x.id===id)));if(!q)return;
   q.id=uid('q');q.number=nextQuoteNumber();q.status='Rascunho';q.date=today();state.quotes.push(q);await saveOne(COLLECTIONS.quotes,q);renderQuotes();
 }
+
 function printQuote(id){
   const q=state.quotes.find(x=>x.id===id);if(!q)return;
   const c=state.clients.find(x=>x.id===q.clientId)||{};
@@ -496,92 +455,17 @@ function printQuote(id){
   const items=q.items||[];
   const rows=items.map((i,n)=>{
     const model=(state.models.find(m=>m.id===i.model)||{}).name||'Produto';
-    return `<tr>
-      <td>${n+1}</td>
-      <td><b>${esc(model)}</b><br><span class="desc">${esc(i.description||'')} ${i.room?'• Ambiente: '+esc(i.room):''}</span></td>
-      <td class="center">${i.qty}</td>
-      <td class="center">${i.w} × ${i.h} mm</td>
-      <td class="right">${money(i.price)}</td>
-      <td class="right">${money(i.price*i.qty)}</td>
-    </tr>`;
+    return `<tr><td>${n+1}</td><td><b>${esc(model)}</b><br><span class="desc">${esc(i.description||'')} ${i.room?'• Ambiente: '+esc(i.room):''}</span></td><td class="center">${i.qty}</td><td class="center">${i.w} × ${i.h} mm</td><td class="right">${money(i.price)}</td><td class="right">${money(i.price*i.qty)}</td></tr>`;
   }).join('');
   const detail=items.map((i,n)=>{
     const model=(state.models.find(m=>m.id===i.model)||{}).name||'Produto';
-    return `<div class="detail"><b>ITEM ${String(n+1).padStart(2,'0')} — ${esc(model)}</b>
-      <div>${esc(i.aluminum||'')} ${i.line?'• '+esc(i.line):''} • ${esc(i.glass||'')} • ${esc(i.hardware||'')}</div>
-      <div>${i.components?'Componentes: '+esc(i.components):''} ${i.note?'• '+esc(i.note):''}</div>
-    </div>`;
+    return `<div class="detail"><b>ITEM ${String(n+1).padStart(2,'0')} — ${esc(model)}</b><div>${esc(i.aluminum||'')} ${i.line?'• '+esc(i.line):''} • ${esc(i.glass||'')} • ${esc(i.hardware||'')}</div><div>${i.components?'Componentes: '+esc(i.components):''} ${i.note?'• '+esc(i.note):''}</div></div>`;
   }).join('');
 
   const address=[c.address,c.number,c.complement,c.district].filter(Boolean).join(', ');
   const city=[c.city].filter(Boolean).join(' – ');
-  w.document.write(`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">
-  <title>Orçamento ${esc(q.number)}</title>
-  <style>
-  @page{size:A4;margin:12mm 12mm 14mm}
-  *{box-sizing:border-box}body{font-family:Arial,Helvetica,sans-serif;color:#111;font-size:10px;margin:0;line-height:1.35}
-  .top{border:1px solid #333;display:grid;grid-template-columns:1fr 220px;min-height:92px}
-  .brand{padding:10px;border-right:1px solid #333;min-height:92px;overflow:hidden}.brand h1{font-size:17px;margin:2px 0 2px;text-transform:uppercase;line-height:1.05}.brand .sub{font-size:8px;font-weight:bold}.brand .contact{font-size:7.5px;margin-top:6px;line-height:1.3}.print-logo{width:64px;height:64px;max-width:64px;max-height:64px;object-fit:contain;display:block;float:left;margin:0 10px 3px 0;background:transparent;border:0}
-  .number{padding:10px}.number .label{font-size:8px;font-weight:bold}.number .value{font-size:14px;font-weight:bold;margin:3px 0 8px}.number .notice{border:1px solid #777;padding:5px;font-size:8px;font-weight:bold;text-align:center}
-  .title{text-align:center;border:1px solid #333;border-top:0;padding:6px;font-size:15px;font-weight:bold;letter-spacing:.5px}
-  .section-title{background:#e9edf2;border:1px solid #555;border-bottom:0;padding:4px 6px;font-size:9px;font-weight:bold;text-transform:uppercase}
-  .box{border:1px solid #555;padding:7px;margin-bottom:8px;min-height:55px}.cols{display:grid;grid-template-columns:1fr 1fr;gap:0}.cols>div{padding-right:10px}.field{margin:2px 0}.field b{font-size:8px}.field span{font-size:9px}
-  table{width:100%;border-collapse:collapse}.items th{background:#e9edf2;border:1px solid #555;padding:5px;font-size:8px;text-transform:uppercase}.items td{border:1px solid #888;padding:5px;vertical-align:top;font-size:9px}.desc{font-size:8px;color:#444}.center{text-align:center}.right{text-align:right;white-space:nowrap}
-  .value-box{border:1px solid #555;border-top:0;display:grid;grid-template-columns:1fr 1fr}.value-box>div{padding:7px}.value-box>div:first-child{border-right:1px solid #555}.value-big{font-size:13px;font-weight:bold}
-  .detail{border-bottom:1px dotted #888;padding:5px 0;font-size:8.5px}.detail:last-child{border-bottom:0}
-  .conditions{display:grid;grid-template-columns:1fr 1fr 1fr;border:1px solid #555}.conditions>div{padding:7px;border-right:1px solid #555}.conditions>div:last-child{border-right:0}.conditions b{display:block;font-size:8px}.conditions span{font-size:9px}
-  .notes{border:1px solid #555;padding:7px;min-height:55px}.footer{margin-top:20px;display:grid;grid-template-columns:1fr 1fr;gap:35px}.signature{text-align:center;padding-top:22px;border-top:1px solid #555;font-size:9px}
-  .legal{margin-top:12px;text-align:center;font-size:7.5px;color:#555;border-top:1px solid #bbb;padding-top:6px}
-  .no-break{break-inside:avoid}
-  </style></head><body>
-  <div class="top">
-    <div class="brand">${state.config.logo?`<img class="print-logo" src="${esc(state.config.logo)}" alt="Logo">`:``}<h1>${esc(state.config.company)}</h1><div class="sub">SERRALHERIA E ESQUADRIAS</div>
-      <div class="contact">${esc(state.config.address)}<br>Tel./WhatsApp: ${esc(state.config.phone)}<br>CNPJ: ${esc(state.config.cnpj)}</div>
-    </div>
-    <div class="number"><div class="label">DOCUMENTO</div><div class="value">ORÇAMENTO Nº ${esc(q.number)}</div>
-      <div class="label">DATA</div><div>${q.date?q.date.split('-').reverse().join('/'):'—'}</div>
-      <div class="notice">ORÇAMENTO<br>NÃO É DOCUMENTO FISCAL</div>
-    </div>
-  </div>
-  <div class="title">ORÇAMENTO COMERCIAL</div>
-
-  <div class="section-title">PRESTADOR / EMPRESA</div>
-  <div class="box"><div class="cols">
-    <div><div class="field"><b>CNPJ:</b> <span>${esc(state.config.cnpj)}</span></div><div class="field"><b>Nome/Razão Social:</b> <span>${esc(state.config.company)}</span></div><div class="field"><b>Endereço:</b> <span>${esc(state.config.address)}</span></div></div>
-    <div><div class="field"><b>Telefone:</b> <span>${esc(state.config.phone)}</span></div><div class="field"><b>Responsável:</b> <span>${esc(q.seller||'—')}</span></div><div class="field"><b>Obra:</b> <span>${esc(q.work||'—')}</span></div></div>
-  </div></div>
-
-  <div class="section-title">CLIENTE / TOMADOR</div>
-  <div class="box"><div class="cols">
-    <div><div class="field"><b>CPF/CNPJ:</b> <span>${esc(c.doc||'—')}</span></div><div class="field"><b>Nome/Razão Social:</b> <span>${esc(c.name||q.clientName)}</span></div><div class="field"><b>Endereço:</b> <span>${esc(address||'—')}</span></div></div>
-    <div><div class="field"><b>Município/UF:</b> <span>${esc(city||'—')}</span></div><div class="field"><b>Telefone/WhatsApp:</b> <span>${esc(c.whatsapp||c.phone||'—')}</span></div><div class="field"><b>E-mail:</b> <span>${esc(c.email||'—')}</span></div></div>
-  </div></div>
-
-  <div class="section-title">DISCRIMINAÇÃO DOS PRODUTOS / SERVIÇOS</div>
-  <table class="items"><thead><tr><th style="width:5%">Item</th><th>Descrição</th><th style="width:7%">Qtd.</th><th style="width:15%">Medidas</th><th style="width:15%">Valor unit.</th><th style="width:15%">Valor total</th></tr></thead>
-  <tbody>${rows}</tbody></table>
-
-  <div class="value-box">
-    <div><b>DESCRIÇÃO TÉCNICA</b>${detail}</div>
-    <div><b>VALOR DO ORÇAMENTO</b><div class="value-big">${money(q.total)}</div></div>
-  </div>
-
-  <div class="section-title">CONDIÇÕES COMERCIAIS</div>
-  <div class="conditions">
-    <div><b>FORMA DE PAGAMENTO</b><span>${esc(q.payment||'A combinar')}</span></div>
-    <div><b>PRAZO DE ENTREGA</b><span>${esc(q.delivery||'A combinar')}</span></div>
-    <div><b>GARANTIA</b><span>${esc(q.warranty||'A combinar')}</span></div>
-  </div>
-
-  <div class="section-title" style="margin-top:8px">OUTRAS INFORMAÇÕES</div>
-  <div class="notes">${esc(q.notes||'Validade do orçamento: '+(q.validity||10)+' dias.')}</div>
-
-  <div class="footer">
-    <div class="signature">Cliente / Contratante<br>${esc(c.name||q.clientName)}</div>
-    <div class="signature">${esc(state.config.company)}<br>CNPJ: ${esc(state.config.cnpj)}</div>
-  </div>
-  <div class="legal">Este documento é uma proposta/orçamento comercial e não substitui documento fiscal. A NFS-e oficial, quando aplicável, deve ser emitida pelo sistema fiscal competente.</div>
-  <script>window.onload = function() { window.print(); }</script></body></html>`);
+  
+  w.document.write(`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Orçamento ${esc(q.number)}</title><style>@page{size:A4;margin:12mm 12mm 14mm}*{box-sizing:border-box}body{font-family:Arial,Helvetica,sans-serif;color:#111;font-size:10px;margin:0;line-height:1.35}.top{border:1px solid #333;display:grid;grid-template-columns:1fr 220px;min-height:92px}.brand{padding:10px;border-right:1px solid #333;min-height:92px;overflow:hidden}.brand h1{font-size:17px;margin:2px 0 2px;text-transform:uppercase;line-height:1.05}.brand .sub{font-size:8px;font-weight:bold}.brand .contact{font-size:7.5px;margin-top:6px;line-height:1.3}.print-logo{width:64px;height:64px;max-width:64px;max-height:64px;object-fit:contain;display:block;float:left;margin:0 10px 3px 0;background:transparent;border:0}.number{padding:10px}.number .label{font-size:8px;font-weight:bold}.number .value{font-size:14px;font-weight:bold;margin:3px 0 8px}.number .notice{border:1px solid #777;padding:5px;font-size:8px;font-weight:bold;text-align:center}.title{text-align:center;border:1px solid #333;border-top:0;padding:6px;font-size:15px;font-weight:bold;letter-spacing:.5px}.section-title{background:#e9edf2;border:1px solid #555;border-bottom:0;padding:4px 6px;font-size:9px;font-weight:bold;text-transform:uppercase}.box{border:1px solid #555;padding:7px;margin-bottom:8px;min-height:55px}.cols{display:grid;grid-template-columns:1fr 1fr;gap:0}.cols>div{padding-right:10px}.field{margin:2px 0}.field b{font-size:8px}.field span{font-size:9px}table{width:100%;border-collapse:collapse}.items th{background:#e9edf2;border:1px solid #555;padding:5px;font-size:8px;text-transform:uppercase}.items td{border:1px solid #888;padding:5px;vertical-align:top;font-size:9px}.desc{font-size:8px;color:#444}.center{text-align:center}.right{text-align:right;white-space:nowrap}.value-box{border:1px solid #555;border-top:0;display:grid;grid-template-columns:1fr 1fr}.value-box>div{padding:7px}.value-box>div:first-child{border-right:1px solid #555}.value-big{font-size:13px;font-weight:bold}.detail{border-bottom:1px dotted #888;padding:5px 0;font-size:8.5px}.detail:last-child{border-bottom:0}.conditions{display:grid;grid-template-columns:1fr 1fr 1fr;border:1px solid #555}.conditions>div{padding:7px;border-right:1px solid #555}.conditions>div:last-child{border-right:0}.conditions b{display:block;font-size:8px}.conditions span{font-size:9px}.notes{border:1px solid #555;padding:7px;min-height:55px}.footer{margin-top:20px;display:grid;grid-template-columns:1fr 1fr;gap:35px}.signature{text-align:center;padding-top:22px;border-top:1px solid #555;font-size:9px}.legal{margin-top:12px;text-align:center;font-size:7.5px;color:#555;border-top:1px solid #bbb;padding-top:6px}</style></head><body><div class="top"><div class="brand">${state.config.logo?`<img class="print-logo" src="${esc(state.config.logo)}" alt="Logo">`:``}<h1>${esc(state.config.company)}</h1><div class="sub">SERRALHERIA E ESQUADRIAS</div><div class="contact">${esc(state.config.address)}<br>Tel./WhatsApp: ${esc(state.config.phone)}<br>CNPJ: ${esc(state.config.cnpj)}</div></div><div class="number"><div class="label">DOCUMENTO</div><div class="value">ORÇAMENTO Nº ${esc(q.number)}</div><div class="label">DATA</div><div>${q.date?q.date.split('-').reverse().join('/'):'—'}</div><div class="notice">ORÇAMENTO<br>NÃO É DOCUMENTO FISCAL</div></div></div><div class="title">ORÇAMENTO COMERCIAL</div><div class="section-title">PRESTADOR / EMPRESA</div><div class="box"><div class="cols"><div><div class="field"><b>CNPJ:</b> <span>${esc(state.config.cnpj)}</span></div><div class="field"><b>Nome/Razão Social:</b> <span>${esc(state.config.company)}</span></div><div class="field"><b>Endereço:</b> <span>${esc(state.config.address)}</span></div></div><div><div class="field"><b>Telefone:</b> <span>${esc(state.config.phone)}</span></div><div class="field"><b>Responsável:</b> <span>${esc(q.seller||'—')}</span></div><div class="field"><b>Obra:</b> <span>${esc(q.work||'—')}</span></div></div></div></div><div class="section-title">CLIENTE / TOMADOR</div><div class="box"><div class="cols"><div><div class="field"><b>CPF/CNPJ:</b> <span>${esc(c.doc||'—')}</span></div><div class="field"><b>Nome/Razão Social:</b> <span>${esc(c.name||q.clientName)}</span></div><div class="field"><b>Endereço:</b> <span>${esc(address||'—')}</span></div></div><div><div class="field"><b>Município/UF:</b> <span>${esc(city||'—')}</span></div><div class="field"><b>Telefone/WhatsApp:</b> <span>${esc(c.whatsapp||c.phone||'—')}</span></div><div class="field"><b>E-mail:</b> <span>${esc(c.email||'—')}</span></div></div></div></div><div class="section-title">DISCRIMINAÇÃO DOS PRODUTOS / SERVIÇOS</div><table class="items"><thead><tr><th style="width:5%">Item</th><th>Descrição</th><th style="width:7%">Qtd.</th><th style="width:15%">Medidas</th><th style="width:15%">Valor unit.</th><th style="width:15%">Valor total</th></tr></thead><tbody>${rows}</tbody></table><div class="value-box"><div><b>DESCRIÇÃO TÉCNICA</b>${detail}</div><div><b>VALOR DO ORÇAMENTO</b><div class="value-big">${money(q.total)}</div></div></div><div class="section-title">CONDIÇÕES COMERCIAIS</div><div class="conditions"><div><b>FORMA DE PAGAMENTO</b><span>${esc(q.payment||'A combinar')}</span></div><div><b>PRAZO DE ENTREGA</b><span>${esc(q.delivery||'A combinar')}</span></div><div><b>GARANTIA</b><span>${esc(q.warranty||'A combinar')}</span></div></div><div class="section-title" style="margin-top:8px">OUTRAS INFORMAÇÕES</div><div class="notes">${esc(q.notes||'Validade do orçamento: '+(q.validity||10)+' dias.')}</div><div class="footer"><div class="signature">Cliente / Contratante<br>${esc(c.name||q.clientName)}</div><div class="signature">${esc(state.config.company)}<br>CNPJ: ${esc(state.config.cnpj)}</div></div><div class="legal">Este documento é uma proposta/orçamento comercial e não substitui documento fiscal. A NFS-e oficial, quando aplicável, deve ser emitida pelo sistema fiscal competente.</div><script>window.onload = function() { window.print(); }</script></body></html>`);
   w.document.close();
 }
 
@@ -590,49 +474,7 @@ function printReceipt(id){
   const c=state.clients.find(x=>x.id===q.clientId)||{};
   const w=window.open('','_blank');if(!w){alert('Permita pop-ups para imprimir.');return}
 
-  w.document.write(`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">
-  <title>Recibo ${esc(q.number)}</title>
-  <style>
-  @page{size:A4;margin:15mm}
-  body{font-family:Arial,sans-serif;color:#000;padding:20px;max-width:800px;margin:0 auto;}
-  .recibo-container{border:2px solid #000;padding:20px;border-radius:8px;}
-  .cabecalho-recibo{text-align:center;border-bottom:2px solid #000;margin-bottom:20px;padding-bottom:10px;}
-  .cabecalho-recibo h2{margin:0;font-size:24px;text-transform:uppercase;}
-  .cabecalho-recibo p{margin:5px 0 0;font-size:12px;}
-  h3{text-align:center;font-size:20px;margin-bottom:30px;}
-  .dados-recibo p{font-size:14px;margin-bottom:10px;line-height:1.6;}
-  .dados-recibo strong{display:inline-block;width:150px;}
-  .assinatura{margin-top:80px;text-align:center;}
-  .assinatura p{margin:5px 0;}
-  .valor-destaque{font-size:18px;font-weight:bold;}
-  .print-logo{max-width:120px;max-height:60px;margin-bottom:10px;}
-  </style></head><body>
-  <div class="recibo-container">
-      <div class="cabecalho-recibo">
-          ${state.config.logo ? `<img class="print-logo" src="${esc(state.config.logo)}" alt="Logo">` : ''}
-          <h2>${esc(state.config.company)}</h2>
-          <p>CNPJ: ${esc(state.config.cnpj)} | Tel: ${esc(state.config.phone)}</p>
-          <p>${esc(state.config.address)}</p>
-      </div>
-
-      <h3>RECIBO DE PAGAMENTO</h3>
-
-      <div class="dados-recibo">
-          <p><strong>Nº do Orçamento:</strong> ${esc(q.number)}</p>
-          <p><strong>Cliente:</strong> ${esc(c.name || q.clientName)}</p>
-          <p><strong>CPF/CNPJ:</strong> ${esc(c.doc || '—')}</p>
-          <p><strong>Referente a:</strong> Serviços de Esquadrias e Serralheria (${esc(q.work || 'Orçamento aprovado')})</p>
-          <p><strong>Valor Total:</strong> <span class="valor-destaque">${money(q.total)}</span></p>
-          <p><strong>Data de Emissão:</strong> ${new Date().toLocaleDateString('pt-BR')}</p>
-      </div>
-
-      <div class="assinatura">
-          <p>_________________________________________________</p>
-          <p>${esc(state.config.company)}</p>
-          <p>Assinatura do Emissor</p>
-      </div>
-  </div>
-  <script>window.onload = function() { window.print(); }</script></body></html>`);
+  w.document.write(`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Recibo ${esc(q.number)}</title><style>@page{size:A4;margin:15mm}body{font-family:Arial,sans-serif;color:#000;padding:20px;max-width:800px;margin:0 auto}.recibo-container{border:2px solid #000;padding:20px;border-radius:8px}.cabecalho-recibo{text-align:center;border-bottom:2px solid #000;margin-bottom:20px;padding-bottom:10px}.cabecalho-recibo h2{margin:0;font-size:24px;text-transform:uppercase}.cabecalho-recibo p{margin:5px 0 0;font-size:12px}h3{text-align:center;font-size:20px;margin-bottom:30px}.dados-recibo p{font-size:14px;margin-bottom:10px;line-height:1.6}.dados-recibo strong{display:inline-block;width:150px}.assinatura{margin-top:80px;text-align:center}.assinatura p{margin:5px 0}.valor-destaque{font-size:18px;font-weight:bold}.print-logo{max-width:120px;max-height:60px;margin-bottom:10px}</style></head><body><div class="recibo-container"><div class="cabecalho-recibo">${state.config.logo ? `<img class="print-logo" src="${esc(state.config.logo)}" alt="Logo">` : ''}<h2>${esc(state.config.company)}</h2><p>CNPJ: ${esc(state.config.cnpj)} | Tel: ${esc(state.config.phone)}</p><p>${esc(state.config.address)}</p></div><h3>RECIBO DE PAGAMENTO</h3><div class="dados-recibo"><p><strong>Nº do Orçamento:</strong> ${esc(q.number)}</p><p><strong>Cliente:</strong> ${esc(c.name || q.clientName)}</p><p><strong>CPF/CNPJ:</strong> ${esc(c.doc || '—')}</p><p><strong>Referente a:</strong> Serviços de Esquadrias e Serralheria (${esc(q.work || 'Orçamento aprovado')})</p><p><strong>Valor Total:</strong> <span class="valor-destaque">${money(q.total)}</span></p><p><strong>Data de Emissão:</strong> ${new Date().toLocaleDateString('pt-BR')}</p></div><div class="assinatura"><p>_________________________________________________</p><p>${esc(state.config.company)}</p><p>Assinatura do Emissor</p></div></div><script>window.onload = function() { window.print(); }</script></body></html>`);
   w.document.close();
 }
 

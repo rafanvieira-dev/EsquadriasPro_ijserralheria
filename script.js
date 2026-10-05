@@ -159,7 +159,6 @@ async function save(){
       setDoc(doc(db, 'configuracoes', 'principal'), state.config)
     ]);
 
-    // Mantém uma cópia local de segurança.
     localStorage.setItem(KEY, JSON.stringify(state));
     toast('Dados salvos no Firebase.');
     return true;
@@ -247,9 +246,6 @@ function renderClients(){
   }).join('')||'<tr><td colspan="6" class="muted">Nenhum cliente encontrado.</td></tr>';
 }
 
-// ==========================================
-// RENDERIZAÇÃO DOS ORÇAMENTOS (Com botão Recibo)
-// ==========================================
 function renderQuotes(){
   const term=(document.getElementById('quoteSearch')?.value||'').toLowerCase();
   const filter=document.getElementById('quoteStatusFilter')?.value||'';
@@ -585,13 +581,10 @@ function printQuote(id){
     <div class="signature">${esc(state.config.company)}<br>CNPJ: ${esc(state.config.cnpj)}</div>
   </div>
   <div class="legal">Este documento é uma proposta/orçamento comercial e não substitui documento fiscal. A NFS-e oficial, quando aplicável, deve ser emitida pelo sistema fiscal competente.</div>
-  <script>window.onload=()=>window.print()<\/script></body></html>`);
+  <script>window.onload = function() { window.print(); }</script></body></html>`);
   w.document.close();
 }
 
-// ==========================================
-// FUNÇÃO PARA IMPRIMIR O RECIBO FISCAL
-// ==========================================
 function printReceipt(id){
   const q=state.quotes.find(x=>x.id===id);if(!q)return;
   const c=state.clients.find(x=>x.id===q.clientId)||{};
@@ -639,7 +632,7 @@ function printReceipt(id){
           <p>Assinatura do Emissor</p>
       </div>
   </div>
-  <script>window.onload=()=>window.print()<\/script></body></html>`);
+  <script>window.onload = function() { window.print(); }</script></body></html>`);
   w.document.close();
 }
 
@@ -763,16 +756,13 @@ document.addEventListener('DOMContentLoaded',async()=>{
   document.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>closeModal(b.dataset.close));
   document.addEventListener('keydown',e=>{if(e.key==='Escape')document.querySelectorAll('.modal.open').forEach(m=>m.classList.remove('open'))});
   
-  // ==========================================
-  // ATUALIZAÇÃO DO CLIQUE: INCLUI A CHAMADA PARA RECIBO
-  // ==========================================
   document.addEventListener('click',async e=>{
     const t=e.target;
     if(t.dataset.editClient)editClient(t.dataset.editClient);
     if(t.dataset.deleteClient){if(confirm('Excluir este cliente?')){const id=t.dataset.deleteClient;state.clients=state.clients.filter(c=>c.id!==id);await deleteOne(COLLECTIONS.clients,id);renderClients();}}
     if(t.dataset.editQuote)editQuote(t.dataset.editQuote);
     if(t.dataset.printQuote)printQuote(t.dataset.printQuote);
-    if(t.dataset.receiptQuote)printReceipt(t.dataset.receiptQuote); // NOVA FUNÇÃO AQUI
+    if(t.dataset.receiptQuote)printReceipt(t.dataset.receiptQuote);
     if(t.dataset.duplicateQuote)duplicateQuote(t.dataset.duplicateQuote);
     if(t.dataset.deleteQuote){if(confirm('Excluir este orçamento?')){const id=t.dataset.deleteQuote;state.quotes=state.quotes.filter(q=>q.id!==id);await deleteOne(COLLECTIONS.quotes,id);renderQuotes();renderDashboard();}}
     if(t.dataset.modelDraw){const m=state.models.find(x=>x.id===t.dataset.modelDraw);document.getElementById('drawingLarge').innerHTML=`<h3>${esc(m.name)}</h3>${getSvg(m.type,1200,800)}`;openModal('drawingModal')}
